@@ -1,0 +1,52 @@
+name: Update summit and hill data
+
+# Once a month, re-download the SOTA summits list and the Database of British
+# and Irish Hills. If anything changed, commit it and redeploy the site.
+on:
+  schedule:
+    - cron: '17 4 1 * *' # 04:17 UTC on the 1st of each month
+  workflow_dispatch:      # or run it by hand from the Actions tab
+
+permissions:
+  contents: write # commit the updated data
+  actions: write  # start the deploy workflow
+
+concurrency:
+  group: update-data
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # The import script only uses Node's built-in modules, so no npm install.
+      - run: node scripts/import-data.js
+
+      - name: Commit if changed
+        id: commit
+        run: |
+          if git diff --quiet -- data/summits.json data/hills.json; then
+            echo "No changes."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/summits.json data/hills.json
+          git commit -m "Update summit and hill data ($(date -u +%Y-%m-%d))"
+          # A trip may have been saved from the site while this ran.
+          git pull --rebase
+          git push
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      # Commits made by a workflow don't trigger other workflows, so start
+      # the GitHub Pages deploy explicitly.
+      - name: Redeploy site
+        if: steps.commit.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy.yml --ref "${{ github.ref_name }}"

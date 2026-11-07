@@ -182,14 +182,20 @@ live from `data/`.
 
 ## Updating summit and hill data
 
-```bash
-npm run import-data
-```
+`data/summits.json` (valid GM summits from the SOTA summits list) and
+`data/hills.json` (Database of British and Irish Hills) are downloaded copies.
+They refresh in two ways:
 
-This downloads the current SOTA summits list (valid GM summits only) and the
-Database of British and Irish Hills, then rewrites `data/summits.json` and
-`data/hills.json`. Run it now and again to pick up new summits or changed
-points. It needs `unzip`.
+- **Automatically, once a month:** `.github/workflows/update-data.yml` runs on
+  the 1st of each month. It re-downloads both lists. If anything changed, it
+  commits the new files and starts the GitHub Pages deploy. To run it straight
+  away, go to **Actions → Update summit and hill data → Run workflow**.
+- **By hand:** run `npm run import-data` (it needs `unzip`), then commit the two files.
+
+If a download comes back with over 10% fewer summits or hills than before, the
+import stops without overwriting anything. That makes the monthly run show as
+failed, and GitHub emails you. Both lists change rarely, so a big drop almost
+certainly means a broken download.
 
 ## Credits
 

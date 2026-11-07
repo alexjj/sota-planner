@@ -121,8 +121,20 @@ async function importHills(summits) {
   }
 }
 
+// Refuse to overwrite good data with a suspiciously short list (e.g. a
+// truncated download): each list may shrink by at most 10% in one go.
+async function checkNotShrunk(file, key, items) {
+  let before = 0;
+  try { before = JSON.parse(await readFile(path.join(dataDir, file), 'utf8'))[key].length; } catch {}
+  if (items.length < before * 0.9) {
+    throw new Error(`${file}: only ${items.length} ${key} now vs ${before} before. Not overwriting.`);
+  }
+}
+
 const summits = await importSummits();
 const hills = await importHills(summits);
+await checkNotShrunk('summits.json', 'summits', summits);
+await checkNotShrunk('hills.json', 'hills', hills);
 await mkdir(dataDir, { recursive: true });
 const updated = new Date().toISOString().slice(0, 10);
 await writeFile(path.join(dataDir, 'summits.json'),
