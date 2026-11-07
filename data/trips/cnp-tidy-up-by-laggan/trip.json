@@ -1,0 +1,138 @@
+{
+  "routes": [
+    {
+      "id": "rvw3d80",
+      "name": "",
+      "gpx": "rvw3d80.gpx",
+      "stats": {
+        "distanceKm": 2.36,
+        "ascentM": 344,
+        "descentM": 0,
+        "maxEleM": 619,
+        "start": {
+          "lat": 57.00539,
+          "lon": -4.357988
+        }
+      },
+      "parking": {
+        "label": "Start of GPX route",
+        "lat": 57.004421,
+        "lon": -4.361851
+      },
+      "summits": [
+        "GM/CS-095"
+      ],
+      "hills": []
+    },
+    {
+      "id": "rzp3z4o",
+      "name": "GMWS 277 North",
+      "gpx": "rzp3z4o.gpx",
+      "stats": {
+        "distanceKm": 2.49,
+        "ascentM": 246,
+        "descentM": 0,
+        "maxEleM": 569,
+        "start": {
+          "lat": 56.995061,
+          "lon": -4.248445
+        }
+      },
+      "parking": {
+        "label": "Start of GPX route",
+        "lat": 56.995061,
+        "lon": -4.248445
+      },
+      "summits": [
+        "GM/WS-277"
+      ],
+      "hills": []
+    }
+  ],
+  "name": "CNP Tidy up by Laggan",
+  "tags": [
+    "CNP"
+  ],
+  "notes": "",
+  "links": [],
+  "photos": [
+    {
+      "file": "mw6vqqxk-36d6-screenshot-20261107-205218.jpg",
+      "caption": "Parking for CS-095"
+    },
+    {
+      "file": "mw6vsoft-zptx-pasted.jpg",
+      "caption": "Parking for WS-277"
+    }
+  ],
+  "timetable": {
+    "start": "07:00",
+    "stages": [
+      {
+        "id": "vvk5yc",
+        "type": "drive",
+        "label": "",
+        "minutes": 165,
+        "route": "rvw3d80"
+      },
+      {
+        "id": "4ti7s8",
+        "type": "walk",
+        "label": "Walk in (route 1)",
+        "minutes": 50,
+        "route": "rvw3d80"
+      },
+      {
+        "id": "ud4vb9",
+        "type": "activate",
+        "label": "",
+        "minutes": 40,
+        "summit": "GM/CS-095"
+      },
+      {
+        "id": "lsndrl",
+        "type": "walk",
+        "label": "Walk out (route 1)",
+        "minutes": 40,
+        "route": "rvw3d80"
+      },
+      {
+        "id": "jb49wy",
+        "type": "drive",
+        "label": "",
+        "minutes": 15,
+        "route": "rzp3z4o"
+      },
+      {
+        "id": "to6kp7",
+        "type": "walk",
+        "label": "Walk in (route 2)",
+        "minutes": 45,
+        "route": "rzp3z4o"
+      },
+      {
+        "id": "k5c6ch",
+        "type": "activate",
+        "label": "",
+        "minutes": 40,
+        "summit": "GM/WS-277"
+      },
+      {
+        "id": "bvrrrf",
+        "type": "walk",
+        "label": "Walk out (route 2)",
+        "minutes": 35,
+        "route": "rzp3z4o"
+      },
+      {
+        "id": "9rhz13",
+        "type": "drive",
+        "label": "Drive home",
+        "minutes": 165
+      }
+    ]
+  },
+  "id": "cnp-tidy-up-by-laggan",
+  "updated": "2026-11-07T20:54:30.704Z",
+  "created": "2026-11-07T20:54:30.704Z"
+}
