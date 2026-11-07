@@ -1,0 +1,7 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "edit", "runtimeExecutable": "npm", "runtimeArgs": ["run", "edit"], "port": 5173 },
+    { "name": "static-preview", "url": "http://localhost:4173" }
+  ]
+}

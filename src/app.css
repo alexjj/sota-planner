@@ -1,0 +1,121 @@
+:root {
+  --bg: #f6f7f5;
+  --panel: #ffffff;
+  --text: #1f2522;
+  --muted: #68716c;
+  --line: #dde1dc;
+  --accent: #2b8a3e;
+  --accent-ink: #ffffff;
+  --summit: #d9480f;
+  --hill: #7048e8;
+  --danger: #c92a2a;
+  --soft: #eef3ee;
+  --radius: 8px;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--text);
+  background: var(--bg);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161a18;
+    --panel: #1f2421;
+    --text: #e4e8e5;
+    --muted: #97a19b;
+    --line: #333b36;
+    --accent: #51cf66;
+    --accent-ink: #0b1a0e;
+    --soft: #253029;
+    --danger: #ff6b6b;
+  }
+}
+
+* { box-sizing: border-box; }
+html, body, #app { height: 100%; margin: 0; }
+body { background: var(--bg); }
+
+a { color: var(--accent); }
+h1, h2, h3 { line-height: 1.2; margin: 0 0 0.5em; }
+h1 { font-size: 1.5rem; }
+h2 { font-size: 1.1rem; }
+h3 { font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+
+button, .button {
+  font: inherit;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text);
+  padding: 0.35em 0.8em;
+  border-radius: 6px;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  white-space: nowrap;
+}
+button:hover, .button:hover { border-color: var(--muted); }
+button.primary, .button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+button.danger { color: var(--danger); }
+button.small { padding: 0.15em 0.5em; font-size: 0.85rem; }
+button.icon { padding: 0.15em 0.4em; }
+button:disabled { opacity: 0.5; cursor: default; }
+
+input, select, textarea {
+  font: inherit;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.35em 0.5em;
+  min-width: 0;
+}
+textarea { width: 100%; resize: vertical; }
+label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.2em; }
+
+.muted { color: var(--muted); }
+.small { font-size: 0.85rem; }
+.row { display: flex; gap: 0.5em; align-items: center; flex-wrap: wrap; }
+.spacer { flex: 1; }
+.error { color: var(--danger); }
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1rem;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  border-radius: 999px;
+  padding: 0.1em 0.65em;
+  font-size: 0.85rem;
+  background: var(--soft);
+  border: 1px solid var(--line);
+}
+.chip.summit::before, .chip.hill::before {
+  content: ""; width: 0.6em; height: 0.6em; border-radius: 50%;
+}
+.chip.summit::before { background: var(--summit); }
+.chip.hill::before { background: var(--hill); }
+.ref { font-variant-numeric: tabular-nums; font-weight: 600; }
+.tabular { font-variant-numeric: tabular-nums; }
+
+.parking-icon {
+  background: #1c4fd6;
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 22px;
+  text-align: center;
+  border-radius: 4px;
+  border: 1.5px solid #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+.leaflet-container { font: inherit; background: #dfe6dd; }
+.leaflet-popup-content { margin: 10px 12px; font-size: 0.9rem; }
+.leaflet-popup-content h4 { margin: 0 0 0.2em; font-size: 0.95rem; }
+.leaflet-popup-content ul { margin: 0.3em 0; padding-left: 1.1em; }
