@@ -3,35 +3,39 @@
 // API, so the app falls back to read-only there.
 //
 //   GET    /api/status          -> { edit: true, git: bool }
-//   POST   /api/routes          -> create a route, returns { id }
-//   PUT    /api/routes/:id      -> save a route
-//   DELETE /api/routes/:id      -> delete a route and its files
+//   POST   /api/trips           -> create a trip, returns { id }
+//   PUT    /api/trips/:id       -> save a trip
+//   DELETE /api/trips/:id       -> delete a trip and its files
 //   POST   /api/publish         -> git pull, commit data/, push
 //
-// Save/create body: { route, gpx, newPhotos }
-//   gpx:       string = replace the GPX, null = remove it, omitted = keep it
-//   newPhotos: [{ file, dataUrl }] written into the route's photos/ folder.
-//   Photos no longer listed in route.photos are deleted.
+// Save/create body: { trip, gpx, newPhotos }
+//   gpx:       { [routeId]: string | null }. A string replaces that route's
+//              GPX, null removes it; routes not listed keep the GPX they had.
+//   newPhotos: [{ file, dataUrl }] written into the trip's photos/ folder.
+//   GPX and photo files no longer referenced by the trip are deleted.
 
-import { readFile, writeFile, mkdir, readdir, rm, stat } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, readdir, rm, stat, rename } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import path from 'node:path';
 import { parseGpx, gpxStats, simplify } from '../src/lib/gpx.js';
 import { schedule } from '../src/lib/time.js';
+import { normalizeTrip, tripSummits, tripHills, tripStats } from '../src/lib/trip.js';
 
 const run = promisify(execFile);
 export const rootDir = path.resolve(import.meta.dirname, '..');
 export const dataDir = path.join(rootDir, 'data');
-const routesDir = path.join(dataDir, 'routes');
+const tripsDir = path.join(dataDir, 'trips');
+const legacyDir = path.join(dataDir, 'routes');
 
 const ID_RE = /^[a-z0-9][a-z0-9-]{0,80}$/;
+const ROUTE_ID_RE = /^[a-z0-9]{1,20}$/;
 const PHOTO_RE = /^[a-z0-9][a-z0-9._-]{0,100}\.(jpe?g|png|webp)$/i;
 const MAX_BODY = 60 * 1024 * 1024;
 
 export function slugify(name) {
   return name.toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'route';
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'trip';
 }
 
 async function exists(p) {
@@ -42,57 +46,95 @@ async function readJson(p) {
   return JSON.parse(await readFile(p, 'utf8'));
 }
 
-/** Rebuild data/routes/index.json: the summary list the browse view loads. */
-export async function rebuildIndex() {
-  await mkdir(routesDir, { recursive: true });
-  const entries = [];
-  for (const dirent of await readdir(routesDir, { withFileTypes: true })) {
+async function writeTrip(dir, trip) {
+  await writeFile(path.join(dir, 'trip.json'), JSON.stringify(trip, null, 2) + '\n');
+}
+
+/** Move data/routes/<id>/route.json (single-route format) to data/trips/<id>/trip.json. */
+async function migrateLegacy() {
+  if (!(await exists(legacyDir))) return;
+  await mkdir(tripsDir, { recursive: true });
+  for (const dirent of await readdir(legacyDir, { withFileTypes: true })) {
     if (!dirent.isDirectory()) continue;
-    const dir = path.join(routesDir, dirent.name);
-    const file = path.join(dir, 'route.json');
+    const from = path.join(legacyDir, dirent.name);
+    const to = path.join(tripsDir, dirent.name);
+    if (!(await exists(path.join(from, 'route.json'))) || await exists(to)) continue;
+    await rename(from, to);
+    const trip = normalizeTrip(await readJson(path.join(to, 'route.json')));
+    await writeTrip(to, trip);
+    await rm(path.join(to, 'route.json'));
+    console.log(`Migrated data/routes/${dirent.name} to data/trips/${dirent.name}`);
+  }
+  await rm(path.join(legacyDir, 'index.json'), { force: true });
+  if (!(await readdir(legacyDir)).length) await rm(legacyDir, { recursive: true });
+}
+
+/** Rebuild data/trips/index.json: the summary list the browse view loads. */
+export async function rebuildIndex() {
+  await migrateLegacy();
+  await mkdir(tripsDir, { recursive: true });
+  const entries = [];
+  for (const dirent of await readdir(tripsDir, { withFileTypes: true })) {
+    if (!dirent.isDirectory()) continue;
+    const dir = path.join(tripsDir, dirent.name);
+    const file = path.join(dir, 'trip.json');
     if (!(await exists(file))) continue;
-    const r = await readJson(file);
-    let track = [];
-    if (r.gpx && await exists(path.join(dir, r.gpx))) {
-      track = simplify(parseGpx(await readFile(path.join(dir, r.gpx), 'utf8')));
+    const t = normalizeTrip(await readJson(file));
+    const routes = [];
+    for (const r of t.routes) {
+      let track = [];
+      if (r.gpx && await exists(path.join(dir, r.gpx))) {
+        track = simplify(parseGpx(await readFile(path.join(dir, r.gpx), 'utf8')));
+      }
+      routes.push({ id: r.id, name: r.name, summits: r.summits, hills: r.hills, parking: r.parking, stats: r.stats, track });
     }
     entries.push({
-      id: r.id, name: r.name, summits: r.summits ?? [], hills: r.hills ?? [],
-      parking: r.parking ?? null, stats: r.stats ?? null, tags: r.tags ?? [],
-      totalMinutes: r.timetable?.stages?.length
-        ? schedule(r.timetable.start, r.timetable.stages).total : null,
-      updated: r.updated, track,
+      id: t.id, name: t.name, tags: t.tags,
+      summits: tripSummits(t), hills: tripHills(t),
+      stats: tripStats(t.routes),
+      totalMinutes: t.timetable.stages.length ? schedule(t.timetable.start, t.timetable.stages).total : null,
+      updated: t.updated, routes,
     });
   }
   entries.sort((a, b) => a.name.localeCompare(b.name));
-  await writeFile(path.join(routesDir, 'index.json'), JSON.stringify(entries) + '\n');
+  await writeFile(path.join(tripsDir, 'index.json'), JSON.stringify(entries) + '\n');
   return entries;
 }
 
-async function saveRoute(id, body) {
-  const { route, gpx, newPhotos = [] } = body;
-  if (!route || typeof route.name !== 'string' || !route.name.trim()) {
-    throw httpError(400, 'Route needs a name');
+async function saveTrip(id, body) {
+  const { gpx = {}, newPhotos = [] } = body;
+  if (!body.trip || typeof body.trip.name !== 'string' || !body.trip.name.trim()) {
+    throw httpError(400, 'Trip needs a name');
   }
-  const dir = path.join(routesDir, id);
+  const trip = normalizeTrip(body.trip);
+  const dir = path.join(tripsDir, id);
   const photoDir = path.join(dir, 'photos');
   await mkdir(photoDir, { recursive: true });
+  const prevFile = path.join(dir, 'trip.json');
+  const prev = await exists(prevFile) ? normalizeTrip(await readJson(prevFile)) : { routes: [] };
 
-  // GPX: replace, remove, or keep.
-  if (typeof gpx === 'string') {
-    const lines = parseGpx(gpx);
-    if (!lines.length) throw httpError(400, 'GPX file has no track or route points');
-    await writeFile(path.join(dir, 'route.gpx'), gpx);
-    route.gpx = 'route.gpx';
-    route.stats = gpxStats(lines);
-  } else if (gpx === null) {
-    await rm(path.join(dir, 'route.gpx'), { force: true });
-    route.gpx = null;
-    route.stats = null;
-  } else {
-    const prev = await exists(path.join(dir, 'route.json')) ? await readJson(path.join(dir, 'route.json')) : {};
-    route.gpx = prev.gpx ?? null;
-    route.stats = prev.stats ?? null;
+  // Each route's GPX: replace, remove, or keep what it had.
+  for (const route of trip.routes) {
+    if (!ROUTE_ID_RE.test(route.id)) throw httpError(400, `Bad route id: ${route.id}`);
+    const change = gpx[route.id];
+    if (typeof change === 'string') {
+      const lines = parseGpx(change);
+      if (!lines.length) throw httpError(400, `GPX for "${route.name || route.id}" has no track or route points`);
+      route.gpx = `${route.id}.gpx`;
+      await writeFile(path.join(dir, route.gpx), change);
+      route.stats = gpxStats(lines);
+    } else if (change === null) {
+      route.gpx = null;
+      route.stats = null;
+    } else {
+      const old = prev.routes.find((r) => r.id === route.id);
+      route.gpx = old?.gpx ?? null;
+      route.stats = old?.stats ?? null;
+    }
+  }
+  const keepGpx = new Set(trip.routes.map((r) => r.gpx).filter(Boolean));
+  for (const f of await readdir(dir)) {
+    if (f.toLowerCase().endsWith('.gpx') && !keepGpx.has(f)) await rm(path.join(dir, f), { force: true });
   }
 
   // New photos arrive as data URLs.
@@ -102,19 +144,19 @@ async function saveRoute(id, body) {
     if (!m) throw httpError(400, `Bad photo data: ${p.file}`);
     await writeFile(path.join(photoDir, p.file), Buffer.from(m[1], 'base64'));
   }
-  // Remove photo files that the route no longer lists.
-  route.photos = (route.photos ?? []).filter((p) => PHOTO_RE.test(p.file));
-  const keep = new Set(route.photos.map((p) => p.file));
+  // Remove photo files that the trip no longer lists.
+  trip.photos = trip.photos.filter((p) => PHOTO_RE.test(p.file));
+  const keep = new Set(trip.photos.map((p) => p.file));
   for (const f of await readdir(photoDir)) {
     if (!keep.has(f)) await rm(path.join(photoDir, f), { force: true });
   }
 
-  route.id = id;
-  route.updated = new Date().toISOString();
-  route.created ??= route.updated;
-  await writeFile(path.join(dir, 'route.json'), JSON.stringify(route, null, 2) + '\n');
+  trip.id = id;
+  trip.updated = new Date().toISOString();
+  trip.created = prev.created ?? trip.created ?? trip.updated;
+  await writeTrip(dir, trip);
   await rebuildIndex();
-  return route;
+  return trip;
 }
 
 async function publish() {
@@ -127,9 +169,9 @@ async function publish() {
   const { stdout: remotes } = await git('remote');
   const hasRemote = remotes.trim().length > 0;
   if (hasRemote) await step('pull', '--rebase', '--autostash');
-  await step('add', 'data');
+  await step('add', '--all', 'data');
   const { stdout: staged } = await git('diff', '--cached', '--name-only');
-  if (staged.trim()) await step('commit', '-m', `Update routes (${new Date().toISOString().slice(0, 16).replace('T', ' ')})`);
+  if (staged.trim()) await step('commit', '-m', `Update trips (${new Date().toISOString().slice(0, 16).replace('T', ' ')})`);
   else log.push('Nothing new to commit.');
   if (hasRemote) await step('push');
   else log.push('No git remote set, so nothing was pushed.');
@@ -180,22 +222,22 @@ export async function apiMiddleware(req, res, next) {
     if (parts[0] === 'publish' && method === 'POST') {
       return send(res, 200, { log: await publish() });
     }
-    if (parts[0] === 'routes' && parts.length === 1 && method === 'POST') {
+    if (parts[0] === 'trips' && parts.length === 1 && method === 'POST') {
       const body = await readBody(req);
-      const base = slugify(body.route?.name ?? '');
+      const base = slugify(body.trip?.name ?? '');
       let id = base;
-      for (let n = 2; await exists(path.join(routesDir, id)); n++) id = `${base}-${n}`;
-      const route = await saveRoute(id, body);
-      return send(res, 201, { id, route });
+      for (let n = 2; await exists(path.join(tripsDir, id)); n++) id = `${base}-${n}`;
+      const trip = await saveTrip(id, body);
+      return send(res, 201, { id, trip });
     }
-    if (parts[0] === 'routes' && parts.length === 2) {
+    if (parts[0] === 'trips' && parts.length === 2) {
       const id = parts[1];
-      if (!ID_RE.test(id)) throw httpError(400, 'Bad route id');
-      const dir = path.join(routesDir, id);
+      if (!ID_RE.test(id)) throw httpError(400, 'Bad trip id');
+      const dir = path.join(tripsDir, id);
       if (method === 'PUT') {
-        if (!(await exists(dir))) throw httpError(404, 'No such route');
-        const route = await saveRoute(id, await readBody(req));
-        return send(res, 200, { id, route });
+        if (!(await exists(dir))) throw httpError(404, 'No such trip');
+        const trip = await saveTrip(id, await readBody(req));
+        return send(res, 200, { id, trip });
       }
       if (method === 'DELETE') {
         await rm(dir, { recursive: true, force: true });

@@ -1,3 +1,5 @@
+import { normalizeTrip } from './trip.js';
+
 // Loading data. All paths are relative so the site works from any base URL
 // (GitHub Pages project sites live under /<repo>/).
 
@@ -34,21 +36,25 @@ export const getStatus = once(async () => {
 });
 
 export function getIndex() {
-  return loadJson('data/routes/index.json').catch(() => []);
+  return loadJson('data/trips/index.json').catch(() => []);
 }
 
-export function getRoute(id) {
-  return loadJson(`data/routes/${encodeURIComponent(id)}/route.json`);
+export async function getTrip(id) {
+  return normalizeTrip(await loadJson(`data/trips/${encodeURIComponent(id)}/trip.json`));
 }
 
-export async function getGpxText(id, file) {
-  const res = await fetch(`data/routes/${encodeURIComponent(id)}/${file}`, { cache: 'no-store' });
+export function gpxUrl(tripId, file) {
+  return `data/trips/${encodeURIComponent(tripId)}/${encodeURIComponent(file)}`;
+}
+
+export async function getGpxText(tripId, file) {
+  const res = await fetch(gpxUrl(tripId, file), { cache: 'no-store' });
   if (!res.ok) throw new Error(`GPX: ${res.status}`);
   return res.text();
 }
 
-export function photoUrl(routeId, file) {
-  return `data/routes/${encodeURIComponent(routeId)}/photos/${encodeURIComponent(file)}`;
+export function photoUrl(tripId, file) {
+  return `data/trips/${encodeURIComponent(tripId)}/photos/${encodeURIComponent(file)}`;
 }
 
 async function api(method, url, body) {
@@ -62,9 +68,9 @@ async function api(method, url, body) {
   return data;
 }
 
-export const createRoute = (body) => api('POST', 'api/routes', body);
-export const saveRoute = (id, body) => api('PUT', `api/routes/${encodeURIComponent(id)}`, body);
-export const deleteRoute = (id) => api('DELETE', `api/routes/${encodeURIComponent(id)}`);
+export const createTrip = (body) => api('POST', 'api/trips', body);
+export const saveTrip = (id, body) => api('PUT', `api/trips/${encodeURIComponent(id)}`, body);
+export const deleteTrip = (id) => api('DELETE', `api/trips/${encodeURIComponent(id)}`);
 export const publish = () => api('POST', 'api/publish');
 
 /** Read a coordinate from pasted text: "56.5, -4.2" or a Google Maps URL. */
@@ -77,6 +83,8 @@ export function parseLatLon(text) {
   return { lat: Math.round(lat * 1e6) / 1e6, lon: Math.round(lon * 1e6) / 1e6 };
 }
 
-export function googleMapsUrl(p) {
-  return `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lon}`;
+/** Google Maps directions to `to`, from `from` if given (else your location). */
+export function googleMapsUrl(to, from = null) {
+  const origin = from ? `&origin=${from.lat},${from.lon}` : '';
+  return `https://www.google.com/maps/dir/?api=1${origin}&destination=${to.lat},${to.lon}&travelmode=driving`;
 }

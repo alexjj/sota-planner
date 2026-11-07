@@ -1,22 +1,47 @@
 <script>
-  // Edit a route's stages. `timetable` is the parent's state object and is
-  // changed in place.
+  // Edit a trip's stages. `timetable` is the parent's state object and is
+  // changed in place. With more than one route, each stage can be linked to
+  // a route; activation stages follow the route that holds their summit.
   import { STAGE_TYPES, typeInfo, parseDuration, durationInput, fmtDuration } from '../lib/time.js';
   import { naismithMinutes } from '../lib/gpx.js';
   import { googleMapsUrl } from '../lib/store.js';
+  import { newId, stageRouteId } from '../lib/trip.js';
 
-  let { timetable, summits = [], stats = null, parking = null } = $props();
+  // routes: Map from routeInfo(); statsFor(route) gives current GPX stats.
+  let { timetable, trip, routes, summitsByRef, statsFor = (r) => r.stats } = $props();
 
   let pace = $state(1);
-  const naismith = $derived(stats ? naismithMinutes(stats.distanceKm, stats.ascentM, pace) : null);
+  const multi = $derived(trip.routes.length > 1);
 
-  const newId = () => Math.random().toString(36).slice(2, 10);
+  const naismith = (r) => {
+    const st = statsFor(r);
+    return st ? naismithMinutes(st.distanceKm, st.ascentM, pace) : null;
+  };
+  const summitName = (ref) => summitsByRef?.get(ref)?.name ?? ref;
+
+  // Drive-time links: to the first parking, then between parkings.
+  const driveLinks = $derived.by(() => {
+    const out = [];
+    let prev = null;
+    for (const r of trip.routes) {
+      if (!r.parking) continue;
+      const n = routes.get(r.id)?.number;
+      out.push({ label: prev ? `P${prev.n} → P${n}` : multi ? `To P${n}` : 'To parking', url: googleMapsUrl(r.parking, prev?.parking) });
+      prev = { n, parking: r.parking };
+    }
+    return out;
+  });
 
   function add(type) {
     const stage = { id: newId(), type, label: '', minutes: STAGE_TYPES[type].minutes };
+    const last = timetable.stages.at(-1);
+    const lastRoute = last ? stageRouteId(last, trip) : trip.routes[0]?.id;
     if (type === 'activate') {
       const used = new Set(timetable.stages.filter((s) => s.type === 'activate').map((s) => s.summit));
-      stage.summit = summits.find((s) => !used.has(s.ref))?.ref ?? summits[0]?.ref ?? null;
+      const all = trip.routes.flatMap((r) => r.summits);
+      stage.summit = all.find((ref) => !used.has(ref)) ?? all[0] ?? null;
+    } else if (multi && lastRoute && type !== 'drive') {
+      stage.route = lastRoute;
     }
     if (type === 'camp') stage.until = '06:00';
     timetable.stages.push(stage);
@@ -35,21 +60,34 @@
     e.currentTarget.value = durationInput(stage.minutes);
   }
 
+  function setRoute(stage, value) {
+    if (value) stage.route = value;
+    else delete stage.route;
+  }
+
   function toggleUntil(stage) {
     if (stage.until) delete stage.until;
     else stage.until = '06:00';
   }
 
+  /** Drive, then for each route: walk in, activate each summit, walk out, drive on. */
   function typicalDay() {
-    const s = [{ id: newId(), type: 'drive', label: 'Drive to parking', minutes: 60 }];
-    const half = naismith ? Math.round(naismith * 0.55) : 120;
-    s.push({ id: newId(), type: 'walk', label: 'Walk in', minutes: half });
-    summits.forEach((sm, i) => {
-      if (i > 0) s.push({ id: newId(), type: 'walk', label: `Walk to ${sm.name}`, minutes: 60 });
-      s.push({ id: newId(), type: 'activate', label: '', minutes: 40, summit: sm.ref });
+    const s = [];
+    trip.routes.forEach((r) => {
+      const n = routes.get(r.id).number;
+      s.push({ id: newId(), type: 'drive', label: '', minutes: 60, route: r.id });
+      const total = naismith(r);
+      const out = total ? Math.round(total * 0.45) : 90;
+      const walkIn = total ? total - out : 120;
+      s.push({ id: newId(), type: 'walk', label: multi ? `Walk in (route ${n})` : 'Walk in', minutes: walkIn, route: r.id });
+      r.summits.forEach((ref, k) => {
+        if (k > 0) s.push({ id: newId(), type: 'walk', label: `Walk to ${summitName(ref)}`, minutes: 60, route: r.id });
+        s.push({ id: newId(), type: 'activate', label: '', minutes: 40, summit: ref });
+      });
+      s.push({ id: newId(), type: 'walk', label: multi ? `Walk out (route ${n})` : 'Walk out', minutes: out, route: r.id });
     });
-    s.push({ id: newId(), type: 'walk', label: 'Walk out', minutes: naismith ? naismith - half : 90 });
     s.push({ id: newId(), type: 'drive', label: 'Drive home', minutes: 60 });
+    if (!multi) for (const st of s) delete st.route;
     timetable.stages = s;
   }
 </script>
@@ -63,36 +101,60 @@
   {/if}
 </div>
 
-{#if stats || parking}
-  <div class="hints small">
-    {#if stats}
-      <span>
-        GPX: {stats.distanceKm} km, {stats.ascentM} m up. Naismith for the whole route
-        <strong>{fmtDuration(naismith)}</strong> at pace
-        <input class="pace" type="number" min="0.5" max="2" step="0.05" bind:value={pace} title="1 = Naismith, 0.8 = 20% faster" />
+<div class="hints small">
+  {#each trip.routes as r (r.id)}
+    {@const st = statsFor(r)}
+    {#if st}
+      {@const ri = routes.get(r.id)}
+      <span class="row hint">
+        {#if multi}<span class="route-badge" style="background:{ri.color}">{ri.number}</span>{/if}
+        GPX {st.distanceKm} km, {st.ascentM} m up · Naismith <strong>{fmtDuration(naismith(r))}</strong>
       </span>
     {/if}
-    {#if parking}
-      <a href={googleMapsUrl(parking)} target="_blank" rel="noopener">Check drive time in Google Maps</a>
-    {/if}
-  </div>
-{/if}
+  {/each}
+  {#if trip.routes.some((r) => statsFor(r))}
+    <span>
+      Pace <input class="pace" type="number" min="0.5" max="2" step="0.05" bind:value={pace} title="1 = Naismith, 0.8 = 20% faster" />
+      <span class="muted">(1 = Naismith, 0.8 = 20% faster)</span>
+    </span>
+  {/if}
+  {#if driveLinks.length}
+    <span class="row">Drive times in Google Maps:
+      {#each driveLinks as l}<a href={l.url} target="_blank" rel="noopener">{l.label}</a>{/each}
+    </span>
+  {/if}
+</div>
 
 <div class="stages">
   {#each timetable.stages as stage, i (stage.id ?? i)}
-    <div class="stage {stage.type}">
+    {@const rid = stageRouteId(stage, trip)}
+    {@const ri = rid ? routes.get(rid) : null}
+    <div class="stage {stage.type}" style={multi && ri ? `--route: ${ri.color}` : ''} class:linked={multi && ri}>
       <select bind:value={stage.type} aria-label="Stage type">
         {#each Object.entries(STAGE_TYPES) as [key, t]}
           <option value={key}>{t.icon} {t.label}</option>
         {/each}
       </select>
-      <input class="label" placeholder={typeInfo(stage.type).label} bind:value={stage.label} aria-label="Description" />
       {#if stage.type === 'activate'}
         <select bind:value={stage.summit} aria-label="Summit">
           <option value={null}>–</option>
-          {#each summits as s}<option value={s.ref}>{s.ref} {s.name}</option>{/each}
+          {#each trip.routes as r (r.id)}
+            <optgroup label={multi ? `${routes.get(r.id).number}. ${routes.get(r.id).label}` : 'Summits'}>
+              {#each r.summits as ref}<option value={ref}>{ref} {summitName(ref)}</option>{/each}
+            </optgroup>
+          {/each}
+        </select>
+      {:else if multi}
+        <select value={stage.route ?? ''} onchange={(e) => setRoute(stage, e.currentTarget.value)}
+                aria-label="Route" title="Which route this stage belongs to">
+          <option value="">{stage.type === 'drive' ? 'Drive home / other' : 'No route'}</option>
+          {#each trip.routes as r (r.id)}
+            {@const info = routes.get(r.id)}
+            <option value={r.id}>{stage.type === 'drive' ? `To P${info.number}: ` : `${info.number}. `}{info.label}</option>
+          {/each}
         </select>
       {/if}
+      <input class="label" placeholder={typeInfo(stage.type).label} bind:value={stage.label} aria-label="Description" />
       {#if stage.until}
         <span class="dur">until <input type="time" bind:value={stage.until} aria-label="Until" /></span>
       {:else}
@@ -115,23 +177,30 @@
   {#each Object.entries(STAGE_TYPES) as [key, t]}
     <button class="small" onclick={() => add(key)}>{t.icon} {t.label}</button>
   {/each}
+  {#if timetable.stages.length}
+    <span class="spacer"></span>
+    <button class="small danger" onclick={() => { if (confirm('Clear all timetable stages?')) timetable.stages = []; }}>Clear all</button>
+  {/if}
 </div>
 
 <style>
   .start label { margin: 0; }
   .spacer { flex: 1; }
-  .hints { display: flex; flex-direction: column; gap: 0.2rem; margin: 0.6rem 0; color: var(--muted); }
+  .hints { display: flex; flex-direction: column; gap: 0.3rem; margin: 0.6rem 0; color: var(--muted); }
+  .hint { gap: 0.4em; }
   .pace { width: 4.5em; padding: 0.05em 0.3em; }
   .stages { display: flex; flex-direction: column; gap: 0.35rem; margin: 0.6rem 0; }
   .stage {
     display: flex; gap: 0.35rem; align-items: center; flex-wrap: wrap;
     padding: 0.35rem; border-radius: 6px; border: 1px solid var(--line);
   }
+  .stage.linked { border-left: 5px solid var(--route); }
   .stage.activate { background: color-mix(in srgb, var(--summit) 8%, transparent); }
   .stage.camp { background: color-mix(in srgb, var(--hill) 8%, transparent); }
+  .stage select { max-width: 14em; }
   .label { flex: 1; min-width: 8em; }
   input.dur { width: 5.5em; text-align: right; }
   span.dur { display: inline-flex; gap: 0.3em; align-items: center; font-size: 0.85rem; color: var(--muted); }
-  .tools { display: inline-flex; gap: 0.2rem; }
+  .tools { display: inline-flex; gap: 0.2rem; margin-left: auto; }
   .add { gap: 0.3rem; }
 </style>

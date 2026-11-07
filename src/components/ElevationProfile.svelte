@@ -2,7 +2,7 @@
   // Simple SVG elevation profile from GPX lines.
   import { distanceM } from '../lib/gpx.js';
 
-  let { lines = [] } = $props();
+  let { lines = [], color = '#1c7ed6' } = $props();
 
   const W = 600, H = 140, PAD_L = 36, PAD_B = 18;
 
@@ -37,7 +37,7 @@
 </script>
 
 {#if data}
-  <svg viewBox="0 0 {W} {H}" role="img" aria-label="Elevation profile">
+  <svg viewBox="0 0 {W} {H}" role="img" aria-label="Elevation profile" style="--profile: {color}">
     {#each data.yTicks as t}
       <line x1={PAD_L} x2={W} y1={t.y} y2={t.y} class="grid" />
       <text x={PAD_L - 4} y={t.y + 3} text-anchor="end">{t.e}</text>
@@ -52,8 +52,8 @@
 
 <style>
   svg { width: 100%; height: auto; display: block; }
-  .grid { stroke: var(--line); stroke-width: 1; }
+  .grid { stroke: #8884; stroke-width: 1; }
   text { font-size: 10px; fill: var(--muted); }
-  .area { fill: color-mix(in srgb, #1c7ed6 18%, transparent); }
-  .line { fill: none; stroke: #1c7ed6; stroke-width: 1.8; }
+  .area { fill: color-mix(in srgb, var(--profile) 18%, transparent); }
+  .line { fill: none; stroke: var(--profile); stroke-width: 1.8; }
 </style>

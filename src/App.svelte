@@ -1,7 +1,7 @@
 <script>
   import Home from './pages/Home.svelte';
-  import RouteView from './pages/RouteView.svelte';
-  import RouteEdit from './pages/RouteEdit.svelte';
+  import TripView from './pages/TripView.svelte';
+  import TripEdit from './pages/TripEdit.svelte';
   import { getStatus, publish } from './lib/store.js';
 
   let hash = $state(location.hash);
@@ -17,13 +17,15 @@
     return () => window.removeEventListener('hashchange', onHash);
   });
 
-  // #/route/<id>, #/route/<id>/edit, #/new?summit=GM/CS-001
+  // #/trip/<id>, #/trip/<id>/edit, #/new?summit=GM/CS-001
+  // (#/route/... is the old address, still accepted.)
   const page = $derived.by(() => {
     const [pathPart, queryPart] = hash.replace(/^#/, '').split('?');
     const parts = pathPart.split('/').filter(Boolean).map(decodeURIComponent);
     const query = new URLSearchParams(queryPart ?? '');
-    if (parts[0] === 'route' && parts[1] && parts[2] === 'edit') return { name: 'edit', id: parts[1] };
-    if (parts[0] === 'route' && parts[1]) return { name: 'view', id: parts[1] };
+    const isTrip = parts[0] === 'trip' || parts[0] === 'route';
+    if (isTrip && parts[1] && parts[2] === 'edit') return { name: 'edit', id: parts[1] };
+    if (isTrip && parts[1]) return { name: 'view', id: parts[1] };
     if (parts[0] === 'new') return { name: 'new', summit: query.get('summit') };
     return { name: 'home' };
   });
@@ -49,7 +51,7 @@
     </a>
     <span class="spacer"></span>
     {#if status.edit}
-      <a class="button primary" href="#/new">+ New route</a>
+      <a class="button primary" href="#/new">+ New trip</a>
       {#if status.git}
         <button onclick={doPublish} disabled={publishing} title="Commit data/ and push to GitHub">
           {publishing ? 'Publishing…' : 'Publish'}
@@ -68,11 +70,11 @@
   <main>
     {#key page.name + (page.id ?? '')}
       {#if page.name === 'view'}
-        <RouteView id={page.id} edit={status.edit} />
+        <TripView id={page.id} edit={status.edit} />
       {:else if page.name === 'edit'}
-        <RouteEdit id={page.id} />
+        <TripEdit id={page.id} />
       {:else if page.name === 'new'}
-        <RouteEdit summit={page.summit} />
+        <TripEdit summit={page.summit} />
       {:else}
         <Home edit={status.edit} />
       {/if}

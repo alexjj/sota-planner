@@ -1,9 +1,24 @@
 <script>
-  // Shows a route's stages with clock times. The start time can be nudged
+  // Shows a trip's stages with clock times. The start time can be nudged
   // here to see when you'd be on the summit or home, without saving it.
+  // Stages linked to a route get that route's colour and number.
   import { schedule, fmtClock, fmtDuration, typeInfo, parseClock } from '../lib/time.js';
+  import { stageRouteId } from '../lib/trip.js';
 
-  let { timetable, summitsByRef = new Map(), adjustable = true } = $props();
+  // routes: Map of route id -> { number, color, label } (from routeInfo)
+  let { timetable, summitsByRef = new Map(), adjustable = true, trip = null, routes = new Map() } = $props();
+  const multi = $derived(routes.size > 1);
+
+  function routeOf(stage) {
+    return trip ? routes.get(stageRouteId(stage, trip)) : null;
+  }
+
+  function stageText(r) {
+    if (r.label) return r.label;
+    const ri = routeOf(r);
+    if (r.type === 'drive' && ri) return multi ? `Drive to P${ri.number}` : 'Drive to parking';
+    return typeInfo(r.type).label;
+  }
 
   // A start time typed here overrides the saved one until reset.
   let override = $state(null);
@@ -54,11 +69,15 @@
   <table>
     <tbody>
       {#each plan.rows as r, i (r.id ?? i)}
-        <tr class={r.type}>
+        {@const ri = routeOf(r)}
+        <tr class={r.type} style={ri && multi ? `--route: ${ri.color}` : ''} class:linked={ri && multi}>
           <td class="time tabular">{fmtClock(r.start)}</td>
           <td class="icon" title={typeInfo(r.type).label}>{typeInfo(r.type).icon}</td>
           <td class="what">
-            {r.label || typeInfo(r.type).label}
+            {#if ri && multi}
+              <span class="route-badge" style="background:{ri.color}" title={ri.label}>{ri.number}</span>
+            {/if}
+            {stageText(r)}
             {#if r.type === 'activate' && r.summit}
               <span class="muted small">{summitsByRef.get(r.summit)?.name ?? ''}</span>
             {/if}
@@ -91,7 +110,9 @@
   .key strong { font-size: 1.15rem; }
   table { width: 100%; border-collapse: collapse; }
   td { padding: 0.3rem 0.4rem; border-top: 1px solid var(--line); vertical-align: top; }
-  .time { width: 5.2em; font-weight: 600; white-space: nowrap; }
+  .time { width: 5.2em; font-weight: 600; white-space: nowrap; border-left: 4px solid transparent; }
+  tr.linked .time { border-left-color: var(--route); }
+  .what .route-badge { margin-right: 0.3em; }
   .icon { width: 1.8em; text-align: center; }
   .dur { text-align: right; white-space: nowrap; width: 5em; }
   tr.activate { background: color-mix(in srgb, var(--summit) 10%, transparent); }

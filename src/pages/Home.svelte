@@ -10,7 +10,7 @@
   const VIEW_KEY = 'sota-trip-home-view';
   let mapEl;
   let map;
-  let routes = $state([]);
+  let trips = $state([]);
   let summitsData = $state(null);
   let hillsData = $state(null);
   let query = $state('');
@@ -22,7 +22,7 @@
 
   const filtered = $derived.by(() => {
     const q = query.trim().toLowerCase();
-    return routes.filter((r) => {
+    return trips.filter((r) => {
       if (summitFilter && !r.summits.includes(summitFilter)) return false;
       if (!q) return true;
       const words = [r.name, ...r.summits, ...(r.tags ?? [])];
@@ -32,31 +32,27 @@
     });
   });
 
-  function routesFor(ref) {
-    return routes.filter((r) => r.summits.includes(ref));
-  }
+  const tripLink = (t) => `<li><a href="#/trip/${encodeURIComponent(t.id)}">${esc(t.name)}</a></li>`;
 
   function summitPopup(s) {
     const links = summitLinks(s.ref);
-    const rs = routesFor(s.ref);
-    const routeList = rs.length
-      ? `<ul>${rs.map((r) => `<li><a href="#/route/${encodeURIComponent(r.id)}">${esc(r.name)}</a></li>`).join('')}</ul>`
-      : '<div class="muted">No routes yet</div>';
+    const ts = trips.filter((t) => t.summits.includes(s.ref));
+    const tripList = ts.length ? `<ul>${ts.map(tripLink).join('')}</ul>` : '<div class="muted">No trips yet</div>';
     return `<h4><span class="ref">${esc(s.ref)}</span> ${esc(s.name)}</h4>
       <div class="muted">${s.alt} m · ${s.points} pts${s.bonus ? ` (+${s.bonus} winter)` : ''} · ${s.activations} activations</div>
-      ${routeList}
+      ${tripList}
       <div class="row small">
         <a href="${links.sotlas}" target="_blank" rel="noopener">SOTLAS</a>
         <a href="${links.sotadata}" target="_blank" rel="noopener">SOTA database</a>
-        ${edit ? `<a href="#/new?summit=${encodeURIComponent(s.ref)}">+ New route</a>` : ''}
+        ${edit ? `<a href="#/new?summit=${encodeURIComponent(s.ref)}">+ New trip</a>` : ''}
       </div>`;
   }
 
   function hillPopup(h) {
-    const inRoutes = routes.filter((r) => r.hills.includes(h.id));
+    const inTrips = trips.filter((t) => t.hills.includes(h.id));
     return `<h4>${esc(h.name)}</h4>
       <div class="muted">${h.type} · ${Math.round(h.alt)} m${h.sota ? ` · SOTA ${esc(h.sota)}` : ' · not a SOTA summit'}</div>
-      ${inRoutes.length ? `<ul>${inRoutes.map((r) => `<li><a href="#/route/${encodeURIComponent(r.id)}">${esc(r.name)}</a></li>`).join('')}</ul>` : ''}
+      ${inTrips.length ? `<ul>${inTrips.map(tripLink).join('')}</ul>` : ''}
       <a class="small" href="https://www.hill-bagging.co.uk/hill-view/?qu=S&rf=${h.id}" target="_blank" rel="noopener">Hill Bagging</a>`;
   }
 
@@ -80,35 +76,49 @@
 
     (async () => {
       try {
-        [summitsData, hillsData, routes] = await Promise.all([getSummits(), getHills(), getIndex()]);
+        [summitsData, hillsData, trips] = await Promise.all([getSummits(), getHills(), getIndex()]);
       } catch (e) {
         error = e.message;
         loading = false;
         return;
       }
       loading = false;
-      const planned = new Set(routes.flatMap((r) => r.summits));
+      const planned = new Set(trips.flatMap((t) => t.summits));
 
+      // One layer per trip holding all its routes' lines, so hovering a trip
+      // highlights every route in it.
       const routeGroup = L.layerGroup();
-      for (const r of routes) {
-        if (r.track?.length) {
-          const layer = trackLayer(r.track).bindTooltip(r.name, { sticky: true });
-          layer.on('click', () => (location.hash = `#/route/${encodeURIComponent(r.id)}`));
-          layer.on('mouseover', () => highlight(r.id));
-          layer.on('mouseout', () => highlight(null));
-          trackLayers.set(r.id, layer);
-          routeGroup.addLayer(layer);
+      for (const t of trips) {
+        const lines = L.featureGroup();
+        for (const r of t.routes) {
+          if (r.track?.length) lines.addLayer(trackLayer(r.track));
+          if (r.parking) {
+            routeGroup.addLayer(parkingMarker(r.parking).bindPopup(
+              `<h4>Parking</h4>${esc(r.parking.label ?? '')}<ul>${tripLink(t)}</ul>`));
+          }
         }
-        if (r.parking) {
-          routeGroup.addLayer(parkingMarker(r.parking).bindPopup(
-            `<h4>Parking</h4><a href="#/route/${encodeURIComponent(r.id)}">${esc(r.name)}</a>`));
-        }
+        if (!lines.getLayers().length) continue;
+        lines.bindTooltip(t.name, { sticky: true });
+        lines.on('click', () => (location.hash = `#/trip/${encodeURIComponent(t.id)}`));
+        lines.on('mouseover', () => highlight(t.id));
+        lines.on('mouseout', () => highlight(null));
+        trackLayers.set(t.id, lines);
+        routeGroup.addLayer(lines);
       }
 
-      const hillGroup = L.layerGroup();
+      // Munros: all of them, so they still show with SOTA summits switched off.
+      // A Munro that is also a SOTA summit is drawn as a ring around the SOTA dot.
+      const munroGroup = L.layerGroup();
+      // Other tops: Munro Tops, Corbetts and Grahams that aren't SOTA summits.
+      const topGroup = L.layerGroup();
       for (const h of hillsData.hills) {
-        if (h.sota) continue; // shown as a SOTA summit already
-        hillGroup.addLayer(hillMarker(h).bindPopup(() => hillPopup(h)).bindTooltip(`${h.name} (${h.type})`));
+        if (h.type === 'Munro') {
+          munroGroup.addLayer(hillMarker(h, { ring: !!h.sota })
+            .bindPopup(() => hillPopup(h)).bindTooltip(`${h.name} (Munro)`));
+        } else if (!h.sota) {
+          topGroup.addLayer(hillMarker(h, { color: COLORS.top })
+            .bindPopup(() => hillPopup(h)).bindTooltip(`${h.name} (${h.type})`));
+        }
       }
 
       const summitGroup = L.layerGroup();
@@ -118,12 +128,18 @@
           .bindTooltip(`${s.ref} ${s.name}`));
       }
 
-      hillGroup.addTo(map);
+      munroGroup.addTo(map);
       summitGroup.addTo(map);
       routeGroup.addTo(map);
       created.control.addOverlay(summitGroup, `<span style="color:${COLORS.summit}">●</span> SOTA summits`);
-      created.control.addOverlay(hillGroup, `<span style="color:${COLORS.hill}">●</span> Other Munros, tops, Corbetts, Grahams`);
+      created.control.addOverlay(munroGroup, `<span style="color:${COLORS.hill}">●</span> Munros`);
+      created.control.addOverlay(topGroup, `<span style="color:${COLORS.top}">●</span> Other tops`);
       created.control.addOverlay(routeGroup, `<span style="color:${COLORS.route}">━</span> Routes & parking`);
+      // Toggling a layer back on draws it on top, so keep summits and routes above the hills.
+      map.on('overlayadd', () => {
+        if (map.hasLayer(summitGroup)) summitGroup.eachLayer((l) => l.bringToFront());
+        if (map.hasLayer(routeGroup)) routeGroup.eachLayer((l) => l.bringToFront?.());
+      });
     })();
 
     return () => map.remove();
@@ -132,16 +148,19 @@
   function zoomTo(r) {
     const layer = trackLayers.get(r.id);
     if (layer) map.fitBounds(layer.getBounds(), { padding: [30, 30] });
-    else if (r.parking) map.setView([r.parking.lat, r.parking.lon], 13);
+    else {
+      const p = r.routes.find((x) => x.parking)?.parking;
+      if (p) map.setView([p.lat, p.lon], 13);
+    }
   }
 </script>
 
 <div class="home">
   <aside>
-    <input type="search" placeholder="Search routes, summits, tags…" bind:value={query} />
+    <input type="search" placeholder="Search trips, summits, tags…" bind:value={query} />
     {#if summitFilter}
       <div class="chip summit filter">
-        Routes for <span class="ref">{summitFilter}</span>
+        Trips for <span class="ref">{summitFilter}</span>
         <button class="small icon" onclick={() => (summitFilter = null)} aria-label="Clear filter">✕</button>
       </div>
     {/if}
@@ -150,25 +169,25 @@
       <p class="muted">Loading…</p>
     {:else if error}
       <p class="error">Couldn't load data: {error}</p>
-    {:else if !routes.length}
+    {:else if !trips.length}
       <div class="empty">
-        <p>No routes yet.</p>
+        <p>No trips yet.</p>
         {#if edit}
-          <p class="muted small">Click a summit on the map and choose <b>+ New route</b>, or use the button at the top.</p>
+          <p class="muted small">Click a summit on the map and choose <b>+ New trip</b>, or use the button at the top.</p>
         {:else}
-          <p class="muted small">Routes are added in edit mode (<code>npm run edit</code>).</p>
+          <p class="muted small">Trips are added in edit mode (<code>npm run edit</code>).</p>
         {/if}
       </div>
     {:else}
-      <p class="muted small count">{filtered.length} of {routes.length} routes</p>
+      <p class="muted small count">{filtered.length} of {trips.length} trips</p>
       <ul class="routes">
         {#each filtered as r (r.id)}
           <li class:active={highlighted === r.id}
               onmouseenter={() => highlight(r.id)} onmouseleave={() => highlight(null)}>
-            <a class="name" href="#/route/{encodeURIComponent(r.id)}">{r.name}</a>
+            <a class="name" href="#/trip/{encodeURIComponent(r.id)}">{r.name}</a>
             <div class="chips">
               {#each r.summits as ref}
-                <button class="chip summit" onclick={() => (summitFilter = ref)} title="Show routes for {ref}">
+                <button class="chip summit" onclick={() => (summitFilter = ref)} title="Show trips for {ref}">
                   <span class="ref">{ref}</span> {summitsData?.byRef.get(ref)?.name ?? ''}
                 </button>
               {/each}
@@ -177,6 +196,7 @@
               {/each}
             </div>
             <div class="stats muted small tabular">
+              {#if r.routes.length > 1}{r.routes.length} routes · {/if}
               {#if r.stats}{r.stats.distanceKm} km · {r.stats.ascentM} m ascent{/if}
               {#if r.totalMinutes}{r.stats ? ' · ' : ''}{fmtDuration(r.totalMinutes)} door to door{/if}
               <span class="spacer"></span>
