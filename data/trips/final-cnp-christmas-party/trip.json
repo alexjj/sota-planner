@@ -65,6 +65,12 @@
         "summit": "GM/CS-086"
       },
       {
+        "id": "qlteac",
+        "type": "break",
+        "label": "Christmas Party 🎅",
+        "minutes": 30
+      },
+      {
         "id": "y7ajx7",
         "type": "walk",
         "label": "Short route back",
@@ -91,6 +97,6 @@
     ]
   },
   "id": "final-cnp-christmas-party",
-  "updated": "2026-11-07T22:00:14.039Z",
+  "updated": "2026-11-07T22:03:38.942Z",
   "created": "2026-11-07T22:00:14.039Z"
 }
