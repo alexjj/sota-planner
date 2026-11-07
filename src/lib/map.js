@@ -93,9 +93,15 @@ export function esc(s) {
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 }
 
-export function summitLinks(ref) {
+/** Search Walkhighlands for a hill by name, via DuckDuckGo. */
+export function walkhighlandsSearch(name) {
+  const q = `${name.toLowerCase()} site:www.walkhighlands.co.uk`;
+  return `https://duckduckgo.com/?q=${encodeURIComponent(q).replace(/%20/g, '+')}`;
+}
+
+export function summitLinks(ref, name = '') {
   return {
     sotlas: `https://sotl.as/summits/${ref}`,
-    sotadata: `https://www.sotadata.org.uk/en/summit/${ref}`,
+    walkhighlands: walkhighlandsSearch(name),
   };
 }

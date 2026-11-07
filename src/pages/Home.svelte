@@ -35,7 +35,7 @@
   const tripLink = (t) => `<li><a href="#/trip/${encodeURIComponent(t.id)}">${esc(t.name)}</a></li>`;
 
   function summitPopup(s) {
-    const links = summitLinks(s.ref);
+    const links = summitLinks(s.ref, s.name);
     const ts = trips.filter((t) => t.summits.includes(s.ref));
     const tripList = ts.length ? `<ul>${ts.map(tripLink).join('')}</ul>` : '<div class="muted">No trips yet</div>';
     return `<h4><span class="ref">${esc(s.ref)}</span> ${esc(s.name)}</h4>
@@ -43,7 +43,7 @@
       ${tripList}
       <div class="row small">
         <a href="${links.sotlas}" target="_blank" rel="noopener">SOTLAS</a>
-        <a href="${links.sotadata}" target="_blank" rel="noopener">SOTA database</a>
+        <a href="${links.walkhighlands}" target="_blank" rel="noopener">Search WH</a>
         ${edit ? `<a href="#/new?summit=${encodeURIComponent(s.ref)}">+ New trip</a>` : ''}
       </div>`;
   }
