@@ -1,0 +1,96 @@
+{
+  "routes": [
+    {
+      "id": "roq6a27",
+      "name": "",
+      "gpx": "roq6a27.gpx",
+      "stats": {
+        "distanceKm": 5.05,
+        "ascentM": 509,
+        "descentM": 505,
+        "maxEleM": 752,
+        "start": {
+          "lat": 57.033596,
+          "lon": -4.187443
+        }
+      },
+      "parking": {
+        "label": "Start of GPX route",
+        "lat": 57.033596,
+        "lon": -4.187443
+      },
+      "summits": [
+        "GM/CS-086"
+      ],
+      "hills": []
+    }
+  ],
+  "name": "Final CNP Christmas Party",
+  "tags": [
+    "CNP"
+  ],
+  "notes": "",
+  "links": [
+    {
+      "label": "Route",
+      "url": "https://www.plotaroute.com/route/3481531"
+    }
+  ],
+  "photos": [
+    {
+      "file": "mw6xz283-a74x-pasted.jpg",
+      "caption": "Parking"
+    }
+  ],
+  "timetable": {
+    "start": "07:00",
+    "stages": [
+      {
+        "id": "btubmz",
+        "type": "drive",
+        "label": "Drive via LC",
+        "minutes": 165
+      },
+      {
+        "id": "g1fobj",
+        "type": "walk",
+        "label": "Walk in",
+        "minutes": 60
+      },
+      {
+        "id": "8pupsw",
+        "type": "activate",
+        "label": "",
+        "minutes": 40,
+        "summit": "GM/CS-086"
+      },
+      {
+        "id": "y7ajx7",
+        "type": "walk",
+        "label": "Short route back",
+        "minutes": 40
+      },
+      {
+        "id": "dpw1yf",
+        "type": "drive",
+        "label": "Drive to LC",
+        "minutes": 105
+      },
+      {
+        "id": "yt1lpg",
+        "type": "break",
+        "label": "Tea @ Mo's",
+        "minutes": 30
+      },
+      {
+        "id": "nm2smg",
+        "type": "drive",
+        "label": "Back home",
+        "minutes": 55
+      }
+    ]
+  },
+  "id": "final-cnp-christmas-party",
+  "updated": "2026-11-07T22:00:14.039Z",
+  "created": "2026-11-07T22:00:14.039Z"
+}
