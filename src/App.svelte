@@ -2,17 +2,20 @@
   import Home from './pages/Home.svelte';
   import TripView from './pages/TripView.svelte';
   import TripEdit from './pages/TripEdit.svelte';
+  import GitHubSettings from './components/GitHubSettings.svelte';
   import { getStatus, publish } from './lib/store.js';
+  import { flash } from './lib/flash.svelte.js';
 
   let hash = $state(location.hash);
-  let status = $state({ edit: false });
+  let status = $state(null); // pages wait for this: it decides where data is read from
+  let showGitHub = $state(false);
   let publishing = $state(false);
   let publishLog = $state('');
 
   getStatus().then((s) => (status = s));
 
   $effect(() => {
-    const onHash = () => (hash = location.hash);
+    const onHash = () => { hash = location.hash; };
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   });
@@ -50,7 +53,7 @@
       SOTA Trip Planner
     </a>
     <span class="spacer"></span>
-    {#if status.edit}
+    {#if status?.edit}
       <a class="button primary" href="#/new">+ New trip</a>
       {#if status.git}
         <button onclick={doPublish} disabled={publishing} title="Commit data/ and push to GitHub">
@@ -58,7 +61,22 @@
         </button>
       {/if}
     {/if}
+    {#if status && status.mode !== 'local'}
+      <button class="gh" class:muted={!status.edit} onclick={() => (showGitHub = true)}
+              title={status.edit ? `Saving to ${status.repo} (${status.branch})` : 'Edit trips by saving to GitHub'}>
+        {status.edit ? `GitHub: ${status.repo}` : 'Edit'}
+      </button>
+    {/if}
   </header>
+
+  {#if showGitHub}<GitHubSettings onclose={() => (showGitHub = false)} />{/if}
+
+  {#if flash.text}
+    <div class="flash">
+      <span>{flash.text}</span>
+      <button class="small" onclick={() => (flash.text = '')}>Close</button>
+    </div>
+  {/if}
 
   {#if publishLog}
     <div class="publish-log">
@@ -68,6 +86,7 @@
   {/if}
 
   <main>
+    {#if status}
     {#key page.name + (page.id ?? '')}
       {#if page.name === 'view'}
         <TripView id={page.id} edit={status.edit} />
@@ -79,6 +98,7 @@
         <Home edit={status.edit} />
       {/if}
     {/key}
+    {/if}
   </main>
 </div>
 
@@ -101,5 +121,11 @@
     display: flex; gap: 1rem; align-items: flex-start;
     padding: 0.5rem 1rem; background: var(--soft); border-bottom: 1px solid var(--line);
   }
+  .flash {
+    display: flex; gap: 1rem; align-items: center;
+    padding: 0.4rem 1rem; background: var(--soft); border-bottom: 1px solid var(--line); font-size: 0.9rem;
+  }
+  .flash span { flex: 1; }
+  .gh.muted { color: var(--muted); }
   .publish-log pre { flex: 1; margin: 0; font-size: 0.8rem; white-space: pre-wrap; max-height: 12rem; overflow: auto; }
 </style>

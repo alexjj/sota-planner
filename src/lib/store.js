@@ -1,6 +1,11 @@
 import { normalizeTrip } from './trip.js';
+import * as github from './github.js';
 
-// Loading data. All paths are relative so the site works from any base URL
+// Loading and saving data. There are three modes:
+//   local  - `npm run edit` / `npm run serve`: the edit API reads and writes data/ on disk
+//   github - a GitHub token is saved in this browser: reads and commits go through the GitHub API
+//   static - the public site: read-only, from the deployed data/ files
+// All paths are relative so the site works from any base URL
 // (GitHub Pages project sites live under /<repo>/).
 
 async function loadJson(url) {
@@ -24,37 +29,70 @@ export const getHills = once(async () => {
   return { ...d, byId: new Map(d.hills.map((h) => [h.id, h])) };
 });
 
-/** Edit mode is on when the edit API answers; the static site has none. */
+let mode = 'static';
+let gh = null; // GitHub settings in github mode
+
+/**
+ * Which mode we're in. The local edit API wins when it answers; otherwise
+ * a saved GitHub token turns on GitHub mode.
+ * @returns {Promise<{ edit: boolean, mode: 'local'|'github'|'static', git?: boolean, repo?: string }>}
+ */
 export const getStatus = once(async () => {
   try {
     const res = await fetch('api/status', { cache: 'no-store' });
-    if (!res.ok) return { edit: false };
-    return await res.json();
-  } catch {
-    return { edit: false };
+    if (res.ok) {
+      const status = await res.json();
+      mode = 'local';
+      return { ...status, mode };
+    }
+  } catch {}
+  gh = github.loadSettings();
+  if (gh) {
+    mode = 'github';
+    return { edit: true, mode, repo: gh.repo, branch: gh.branch };
   }
+  return { edit: false, mode };
 });
 
-export function getIndex() {
+export async function getIndex() {
+  await getStatus();
+  if (mode === 'github') {
+    const text = await github.readFile(gh, 'data/trips/index.json');
+    return text ? JSON.parse(text) : [];
+  }
   return loadJson('data/trips/index.json').catch(() => []);
 }
 
 export async function getTrip(id) {
+  await getStatus();
+  if (mode === 'github') return github.getTrip(gh, id);
   return normalizeTrip(await loadJson(`data/trips/${encodeURIComponent(id)}/trip.json`));
 }
 
-export function gpxUrl(tripId, file) {
-  return `data/trips/${encodeURIComponent(tripId)}/${encodeURIComponent(file)}`;
+/** URL of a file in a trip folder. In GitHub mode it points at the repo, so new files show before the site redeploys. */
+function tripFileUrl(tripId, file) {
+  if (mode === 'github') return github.rawUrl(gh, `data/trips/${tripId}/${file}`);
+  return `data/trips/${encodeURIComponent(tripId)}/${file.split('/').map(encodeURIComponent).join('/')}`;
 }
 
-export async function getGpxText(tripId, file) {
-  const res = await fetch(gpxUrl(tripId, file), { cache: 'no-store' });
-  if (!res.ok) throw new Error(`GPX: ${res.status}`);
-  return res.text();
+export function gpxUrl(tripId, file) {
+  return tripFileUrl(tripId, file);
 }
 
 export function photoUrl(tripId, file) {
-  return `data/trips/${encodeURIComponent(tripId)}/photos/${encodeURIComponent(file)}`;
+  return tripFileUrl(tripId, `photos/${file}`);
+}
+
+export async function getGpxText(tripId, file) {
+  await getStatus();
+  if (mode === 'github') {
+    const text = await github.readFile(gh, `data/trips/${tripId}/${file}`);
+    if (text == null) throw new Error(`GPX ${file}: not found`);
+    return text;
+  }
+  const res = await fetch(gpxUrl(tripId, file), { cache: 'no-store' });
+  if (!res.ok) throw new Error(`GPX: ${res.status}`);
+  return res.text();
 }
 
 async function api(method, url, body) {
@@ -68,9 +106,12 @@ async function api(method, url, body) {
   return data;
 }
 
-export const createTrip = (body) => api('POST', 'api/trips', body);
-export const saveTrip = (id, body) => api('PUT', `api/trips/${encodeURIComponent(id)}`, body);
-export const deleteTrip = (id) => api('DELETE', `api/trips/${encodeURIComponent(id)}`);
+export const createTrip = (body) =>
+  mode === 'github' ? github.saveTrip(gh, null, body) : api('POST', 'api/trips', body);
+export const saveTrip = (id, body) =>
+  mode === 'github' ? github.saveTrip(gh, id, body) : api('PUT', `api/trips/${encodeURIComponent(id)}`, body);
+export const deleteTrip = (id) =>
+  mode === 'github' ? github.deleteTrip(gh, id) : api('DELETE', `api/trips/${encodeURIComponent(id)}`);
 export const publish = () => api('POST', 'api/publish');
 
 /** Read a coordinate from pasted text: "56.5, -4.2" or a Google Maps URL. */

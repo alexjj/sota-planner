@@ -4,8 +4,9 @@
   import { createMap, summitMarker, hillMarker, parkingMarker, trackLayer } from '../lib/map.js';
   import {
     getSummits, getHills, getTrip, getIndex, getGpxText, photoUrl, parseLatLon,
-    createTrip, saveTrip, deleteTrip,
+    createTrip, saveTrip, deleteTrip, getStatus,
   } from '../lib/store.js';
+  import { showFlash } from '../lib/flash.svelte.js';
   import { parseGpx, gpxStats, distanceM } from '../lib/gpx.js';
   import { resizeImage, photoFileName } from '../lib/image.js';
   import { normalizeTrip, blankRoute, routeInfo, routeLabel, stageRouteId, newId } from '../lib/trip.js';
@@ -253,6 +254,9 @@
       };
       body.trip.links = body.trip.links.filter((l) => l.url.trim());
       const res = id ? await saveTrip(id, body) : await createTrip(body);
+      if ((await getStatus()).mode === 'github') {
+        showFlash(`Saved "${trip.name}" to GitHub. The public site updates in a minute or two.`);
+      }
       dirty = false;
       location.hash = `#/trip/${encodeURIComponent(res.id)}`;
     } catch (e) {
@@ -266,6 +270,7 @@
     if (!confirm(`Delete "${trip.name}" with all its GPX files and photos? This can't be undone (except through git).`)) return;
     try {
       await deleteTrip(id);
+      if ((await getStatus()).mode === 'github') showFlash(`Deleted "${trip.name}" on GitHub.`);
       dirty = false;
       location.hash = '#/';
     } catch (e) {

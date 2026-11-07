@@ -175,7 +175,7 @@
         {#if edit}
           <p class="muted small">Click a summit on the map and choose <b>+ New trip</b>, or use the button at the top.</p>
         {:else}
-          <p class="muted small">Trips are added in edit mode (<code>npm run edit</code>).</p>
+          <p class="muted small">To add trips, use <b>Edit</b> at the top right (saves to GitHub) or run <code>npm run edit</code>.</p>
         {/if}
       </div>
     {:else}

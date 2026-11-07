@@ -21,15 +21,17 @@ rebuilds the site.
 
 ## How it fits together
 
-```
-npm run edit   ─┐
-npm run serve  ─┴─> edit API (server/api.js) ──writes──> data/  ──git push──> GitHub Pages
-                                                                                (read-only)
-```
+There are three ways the app runs. It picks one automatically.
 
-- **`npm run edit`**: the Vite dev server with the edit API added. This is the normal way to edit on your PC.
-- **`npm run build && npm run serve`**: the built app, live `data/` and the edit API in one Node process with no dependencies. Use this on a server (see below). Set `PORT` and `HOST` as needed; the defaults are `8080` and `127.0.0.1`.
-- **GitHub Pages**: the same app, built with a copy of `data/`. It has no API, so it shows the trips read-only with no edit buttons.
+| Mode | How you start it | Where saves go |
+|---|---|---|
+| **Local** | `npm run edit`, or `npm run build && npm run serve` | Files in `data/` on disk. Commit them yourself or with **Publish**. |
+| **GitHub** | The public site, after pasting a token under **Edit** | A commit straight to the repo through the GitHub API |
+| **Read-only** | The public site, with no token | Nowhere. Browse only. |
+
+- **`npm run edit`:** the Vite dev server with the edit API added.
+- **`npm run serve`:** the built app, live `data/` and the edit API, all in one Node process with no dependencies. Use this on a server (see below). Set `PORT` and `HOST` as needed; the defaults are `8080` and `127.0.0.1`.
+- **Shared save logic:** both the edit API and GitHub mode use `src/lib/save.js` to work out which files a save writes and deletes, so they behave the same.
 
 ## Data layout
 
@@ -128,9 +130,31 @@ are converted to this layout automatically when the edit server starts.
 The app uses relative paths and `#/` URLs, so it works at
 `https://<user>.github.io/<repo>/` without any configuration.
 
-## Editing from work (your own server behind Caddy)
+## Editing from the public site (GitHub mode)
 
-On the server:
+You can add and edit trips on the GitHub Pages site itself. No server is needed.
+
+1. Create a **fine-grained personal access token** at
+   <https://github.com/settings/personal-access-tokens/new>:
+   - **Repository access:** "Only select repositories", then pick this repo.
+   - **Permissions:** Repository permissions → **Contents: Read and write**. Leave everything else as "No access".
+   - **Expiration:** pick a date. When it expires, saving stops working until you paste in a new token.
+2. On the site, click **Edit** at the top right. Paste the token and check the repository (it's filled in from the address). Then click **Check and save**.
+3. The header now shows **GitHub: owner/repo**, and the edit buttons appear.
+
+How it behaves:
+
+- **Each save is one commit.** It contains the trip's `trip.json`, GPX files and photos, plus the updated `data/trips/index.json`.
+- **Seeing your changes:** the deploy workflow publishes the change for everyone a minute or two later. Meanwhile, in GitHub mode the site reads straight from the repo, so you see your changes immediately.
+- **Saving at the same time:** if someone else commits at the same moment, the save retries on top of their commit.
+- **Where the token is kept:** only in that browser's local storage. Use **Edit → Remove token** on a shared computer. If the token leaks, delete it on GitHub's token page and it stops working.
+- **Photos:** in GitHub mode they load from `raw.githubusercontent.com`, so this needs a public repo. GitHub Pages on a free plan needs one anyway.
+
+If you also edit locally, run `git pull` first to pick up trips saved from the site. **Publish** already pulls before it pushes.
+
+## Editing from your own server (behind Caddy)
+
+GitHub mode is usually simpler. If you'd rather run the editor on a server:
 
 ```bash
 git clone <your repo> sota-trip-planner && cd sota-trip-planner
@@ -151,11 +175,10 @@ trips.example.com {
 
 The **Publish** button runs `git pull --rebase`, commits `data/` and pushes.
 This needs push access from the server, for example a deploy key with write
-access. If you edit both on your PC and on the server, publish (or pull)
-before switching between them to avoid conflicts.
+access.
 
-Rebuild (`npm run build`) only after the app code changes. Route data is
-served live from `data/`.
+Rebuild (`npm run build`) only after the app code changes. Trip data is served
+live from `data/`.
 
 ## Updating summit and hill data
 
