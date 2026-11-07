@@ -93,7 +93,10 @@
             .bindTooltip(`${s.ref} ${s.name}`, { permanent: true, direction: 'right', offset: [8, 0] })
             .bindPopup(`<h4><span class="ref">${esc(s.ref)}</span> ${esc(s.name)}</h4>
               <div class="muted">${s.alt} m · ${s.points} pts</div>
-              <a href="${summitLinks(s.ref).sotlas}" target="_blank" rel="noopener">SOTLAS</a>`);
+              <div class="row small">
+                <a href="${summitLinks(s.ref).sotlas}" target="_blank" rel="noopener">SOTLAS</a>
+                <a href="${summitLinks(s.ref, s.name).walkhighlands}" target="_blank" rel="noopener">Search WH</a>
+              </div>`);
           bounds.extend([s.lat, s.lon]);
         }
         for (const hid of r.hills) {
@@ -152,6 +155,7 @@
                   {s.name}
                   <span class="muted small">{s.alt ?? '?'} m · {s.points ?? '?'} pts</span>
                   <a class="small" href={summitLinks(s.ref).sotlas} target="_blank" rel="noopener">SOTLAS</a>
+                  <a class="small" href={summitLinks(s.ref, s.name).walkhighlands} target="_blank" rel="noopener">Search WH</a>
                 </li>
               {/each}
               {#each r.hills as hid}
@@ -248,6 +252,7 @@
   .route-head h2 { margin: 0; }
   section h3 { margin-bottom: 0.4rem; }
   .plain { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.35rem; }
+  .plain a { white-space: nowrap; }
   .stats { display: flex; gap: 1.5rem; flex-wrap: wrap; }
   .stats div { display: flex; flex-direction: column; }
   .stats strong { font-size: 1.15rem; }
