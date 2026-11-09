@@ -1,12 +1,13 @@
 <script>
   // Paste a GitHub token to edit trips straight from the public site.
-  import { loadSettings, saveSettings, clearSettings, guessRepo, checkAccess } from '../lib/github.js';
+  import { loadSettings, saveSettings, clearSettings, guessRepo, checkAccess, normalizeRelay } from '../lib/github.js';
 
   let { onclose } = $props();
 
   const current = loadSettings();
   let repo = $state(current?.repo ?? guessRepo());
   let branch = $state(current?.branch ?? '');
+  let relay = $state(current?.relay ?? '');
   let token = $state('');
   let checking = $state(false);
   let error = $state('');
@@ -23,8 +24,9 @@
     if (!t) { error = 'Paste a token first.'; return; }
     checking = true;
     try {
-      const info = await checkAccess({ token: t, repo: r });
-      saveSettings({ token: t, repo: r, branch: branch.trim() || info.defaultBranch });
+      const rl = normalizeRelay(relay);
+      const info = await checkAccess({ token: t, repo: r, relay: rl });
+      saveSettings({ token: t, repo: r, branch: branch.trim() || info.defaultBranch, ...(rl ? { relay: rl } : {}) });
       location.reload();
     } catch (err) {
       error = err.message;
@@ -58,6 +60,11 @@
 
     <label for="gh-branch">Branch <span class="muted">(leave blank for the default branch)</span></label>
     <input id="gh-branch" bind:value={branch} placeholder="main" autocomplete="off" spellcheck="false" />
+
+    <label for="gh-relay">Relay address <span class="muted">(optional)</span></label>
+    <input id="gh-relay" bind:value={relay} placeholder="https://sota-relay.you.workers.dev" autocomplete="off" spellcheck="false" />
+    <p class="muted small">Only needed on networks that block GitHub, such as at work: requests go through
+      your own Cloudflare Worker instead (see <code>relay/</code> in the repository). Leave blank otherwise.</p>
 
     <p class="muted small">The token is stored only in this browser. Remove it here when you're done on a shared computer.</p>
     {#if error}<p class="error small">{error}</p>{/if}

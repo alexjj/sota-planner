@@ -1,0 +1,9 @@
+# Optional: deploy from the command line with `npx wrangler deploy` in this folder.
+# (Or paste worker.js into the Cloudflare dashboard instead; see README.md.)
+name = "sota-relay"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+[vars]
+ALLOWED_REPOS = "alexjj/sota-planner"
+ALLOWED_ORIGINS = "https://planner.gm5alx.uk,http://localhost:5173,http://localhost:4173"

@@ -148,9 +148,37 @@ How it behaves:
 - **Seeing your changes:** the deploy workflow publishes the change for everyone a minute or two later. Meanwhile, in GitHub mode the site reads straight from the repo, so you see your changes immediately.
 - **Saving at the same time:** if someone else commits at the same moment, the save retries on top of their commit.
 - **Where the token is kept:** only in that browser's local storage. Use **Edit → Remove token** on a shared computer. If the token leaks, delete it on GitHub's token page and it stops working.
-- **Photos:** in GitHub mode they load from `raw.githubusercontent.com`, so this needs a public repo. GitHub Pages on a free plan needs one anyway.
+- **Photos:** in GitHub mode they load from `raw.githubusercontent.com` (or through the relay, below), so this needs a public repo. GitHub Pages on a free plan needs one anyway.
 
 If you also edit locally, run `git pull` first to pick up trips saved from the site. **Publish** already pulls before it pushes.
+
+### Relay for networks that block GitHub
+
+Some networks, such as many workplaces, block `api.github.com`, so saving fails there. A
+small Cloudflare Worker (free plan) can pass the requests on to GitHub for you. The data
+still lives in this repo, and each save is still one commit. The code is in `relay/worker.js`.
+
+1. Sign in at <https://dash.cloudflare.com> (a free account is fine).
+2. Go to **Compute (Workers) → Workers & Pages → Create → Worker**. Start from "Hello World",
+   name it (e.g. `sota-relay`), and click **Deploy**.
+3. Click **Edit code**, replace everything with the contents of `relay/worker.js`, and click **Deploy**.
+4. In the Worker's **Settings → Variables and Secrets**, add two **Text** variables, then deploy:
+   - `ALLOWED_REPOS` = `owner/repo` (this repo, e.g. `alexjj/sota-planner`)
+   - `ALLOWED_ORIGINS` = the site's origin, e.g. `https://alexjj.github.io`
+     (comma-separate extras such as `http://localhost:5173`). This is the address without the `/repo/` path.
+5. Copy the Worker's address from its overview page, e.g. `https://sota-relay.<you>.workers.dev`.
+6. On the site, at work, open **Edit** (or **GitHub: owner/repo**), paste that address into
+   **Relay address**, and click **Check and save**.
+
+The relay stores nothing. Your token travels with each request, as it would to GitHub. It only
+forwards requests for the repos in `ALLOWED_REPOS`, so it can't be used as a general GitHub proxy.
+Photos load through it too (from `/raw/…`). The free plan allows 100,000 requests a day, and a save
+uses about 10.
+
+If the network also blocks `*.workers.dev`, add a custom domain to the Worker
+(**Settings → Domains & Routes**) if you have a domain on Cloudflare, and use that address instead.
+To deploy from the command line instead of the dashboard, edit `relay/wrangler.toml`, then run
+`npx wrangler deploy` in `relay/`.
 
 ## Editing from your own server (behind Caddy)
 

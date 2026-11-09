@@ -13,7 +13,11 @@ const INDEX = `${TRIPS}/index.json`;
 
 // ---- settings (kept in this browser's local storage)
 
-/** @returns {{ token: string, repo: string, branch: string } | null} */
+/**
+ * `relay` is optional: the address of a Cloudflare Worker (see relay/) that
+ * passes requests on to GitHub, for networks that block api.github.com.
+ * @returns {{ token: string, repo: string, branch: string, relay?: string } | null}
+ */
 export function loadSettings() {
   try {
     const s = JSON.parse(localStorage.getItem(SETTINGS_KEY));
@@ -37,12 +41,26 @@ export function guessRepo(loc = location) {
   return `${m[1]}/${first ?? `${m[1]}.github.io`}`;
 }
 
+/** Tidy a relay address. Returns '' for none; throws if it isn't a usable URL. */
+export function normalizeRelay(value) {
+  const v = (value ?? '').trim().replace(/\/+$/, '');
+  if (!v) return '';
+  let url;
+  try { url = new URL(v); } catch { throw new Error('The relay address should look like https://name.workers.dev'); }
+  const local = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+  if (url.protocol !== 'https:' && !(local && url.protocol === 'http:')) {
+    throw new Error('The relay address must start with https://');
+  }
+  return v;
+}
+
 // ---- low-level API
 
 const enc = (path) => path.split('/').map(encodeURIComponent).join('/');
 
 async function gh(s, method, path, body, accept = 'application/vnd.github+json') {
-  const res = await fetch(`${API}${path}`, {
+  const base = s.relay || API;
+  const res = await fetch(`${base}${path}`, {
     method,
     cache: 'no-store',
     headers: {
@@ -52,6 +70,10 @@ async function gh(s, method, path, body, accept = 'application/vnd.github+json')
       ...(body ? { 'Content-Type': 'application/json' } : {}),
     },
     body: body ? JSON.stringify(body) : undefined,
+  }).catch(() => {
+    throw new Error(s.relay
+      ? `Couldn't reach the relay at ${s.relay}. Check the address, and that this network allows it.`
+      : "Couldn't reach api.github.com. If this network blocks GitHub, set up a relay (see the GitHub settings).");
   });
   if (res.ok) return accept.includes('raw') ? res.text() : res.json();
   let detail = '';
@@ -86,7 +108,8 @@ export async function readFile(s, path) {
 
 /** Public URL for a file in the repo (for <img> and downloads). Works for public repos. */
 export function rawUrl(s, path) {
-  return `https://raw.githubusercontent.com/${s.repo}/${encodeURIComponent(s.branch)}/${enc(path)}`;
+  const base = s.relay ? `${s.relay}/raw` : 'https://raw.githubusercontent.com';
+  return `${base}/${s.repo}/${encodeURIComponent(s.branch)}/${enc(path)}`;
 }
 
 function decodeBase64Text(b64) {

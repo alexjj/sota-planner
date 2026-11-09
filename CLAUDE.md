@@ -18,6 +18,8 @@ There is no test suite. At minimum run `npm run build`. Check UI changes in the 
 - **local**: `api/status` answers (dev server or `npm run serve`); saves go through `server/api.js` to disk
 - **github**: a token is saved in localStorage (`sota-trip-github`); reads and commits go through
   `src/lib/github.js` (Git Data API, one commit per save, retries if the branch moved)
+  An optional `relay` setting sends those requests through a Cloudflare Worker (`relay/worker.js`)
+  for networks that block api.github.com. Keep the Worker free of npm dependencies.
 - **static**: public site with no token; read-only
 
 Local wins whenever the edit API answers, so GitHub mode can't be exercised with `npm run edit`.
