@@ -1,0 +1,82 @@
+{
+  "routes": [
+    {
+      "id": "razrmmm",
+      "name": "",
+      "gpx": "razrmmm.gpx",
+      "stats": {
+        "distanceKm": 9.39,
+        "ascentM": 689,
+        "descentM": 691,
+        "maxEleM": 888,
+        "start": {
+          "lat": 56.703769,
+          "lon": -4.130205
+        }
+      },
+      "parking": {
+        "label": "Start of GPX route",
+        "lat": 56.703805,
+        "lon": -4.130351
+      },
+      "summits": [
+        "GM/CS-053"
+      ],
+      "hills": []
+    }
+  ],
+  "name": "Beinn a'Chuallaich",
+  "tags": [],
+  "notes": "The route avoids going into the house but maybe there's another way on the track for the way back?",
+  "links": [
+    {
+      "label": "Route",
+      "url": "https://www.plotaroute.com/route/3483934"
+    }
+  ],
+  "photos": [
+    {
+      "file": "mwb9e7of-9438-pasted.jpg",
+      "caption": "Parking"
+    }
+  ],
+  "timetable": {
+    "start": "09:00",
+    "stages": [
+      {
+        "id": "rh49md",
+        "type": "drive",
+        "label": "",
+        "minutes": 155
+      },
+      {
+        "id": "1gklvt",
+        "type": "walk",
+        "label": "Walk in",
+        "minutes": 90
+      },
+      {
+        "id": "9tqtkq",
+        "type": "activate",
+        "label": "",
+        "minutes": 40,
+        "summit": "GM/CS-053"
+      },
+      {
+        "id": "217l3z",
+        "type": "walk",
+        "label": "Walk out",
+        "minutes": 60
+      },
+      {
+        "id": "9kkw8j",
+        "type": "drive",
+        "label": "Drive home",
+        "minutes": 155
+      }
+    ]
+  },
+  "id": "beinn-a-chuallaich",
+  "updated": "2026-11-10T22:29:29.043Z",
+  "created": "2026-11-10T22:29:29.043Z"
+}
