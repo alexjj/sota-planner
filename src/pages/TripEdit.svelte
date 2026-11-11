@@ -1,7 +1,7 @@
 <script>
   import { onMount, tick } from 'svelte';
   import L from 'leaflet';
-  import { createMap, summitMarker, hillMarker, parkingMarker, trackLayer } from '../lib/map.js';
+  import { createMap, summitMarker, hillMarker, parkingMarker, trackLayer, esc, summitLinks, hillLinks } from '../lib/map.js';
   import {
     getSummits, getHills, getTrip, getIndex, getGpxText, photoUrl, parseLatLon,
     createTrip, saveTrip, deleteTrip, getStatus,
@@ -11,6 +11,7 @@
   import { resizeImage, photoFileName } from '../lib/image.js';
   import { normalizeTrip, blankRoute, routeInfo, routeLabel, stageRouteId, newId } from '../lib/trip.js';
   import SummitPicker from '../components/SummitPicker.svelte';
+  import TagInput from '../components/TagInput.svelte';
   import TimetableEditor from '../components/TimetableEditor.svelte';
   import Timetable from '../components/Timetable.svelte';
 
@@ -158,6 +159,35 @@
     else if (active) pick(active, kind, item);
   }
 
+  /** Map popup for a summit or hill: research links, and a button to add or remove it. */
+  function itemPopup(kind, item) {
+    const key = kind === 'summit' ? item.ref : item.id;
+    const holder = trip.routes.find((r) => (kind === 'summit' ? r.summits : r.hills).includes(key));
+    const routeName = (r) => (multi ? `route ${info.get(r.id)?.number}` : 'the route');
+    const div = document.createElement('div');
+    if (kind === 'summit') {
+      const l = summitLinks(item.ref, item.name);
+      div.innerHTML = `<h4><span class="ref">${esc(item.ref)}</span> ${esc(item.name)}</h4>
+        <div class="muted">${item.alt} m · ${item.points} pts${item.bonus ? ` (+${item.bonus} winter)` : ''} · ${item.activations} activations</div>
+        <div class="row small"><a href="${l.sotlas}" target="_blank" rel="noopener">SOTLAS</a>
+          <a href="${l.walkhighlands}" target="_blank" rel="noopener">Search WH</a></div>`;
+    } else {
+      const l = hillLinks(item);
+      div.innerHTML = `<h4>${esc(item.name)}</h4>
+        <div class="muted">${esc(item.type)} · ${Math.round(item.alt)} m</div>
+        <div class="row small"><a href="${l.hillBagging}" target="_blank" rel="noopener">Hill Bagging</a>
+          <a href="${l.walkhighlands}" target="_blank" rel="noopener">Search WH</a></div>`;
+    }
+    if (holder || active) {
+      const b = document.createElement('button');
+      b.className = 'small popup-action' + (holder ? ' danger' : ' primary');
+      b.textContent = holder ? `Remove from ${routeName(holder)}` : `+ Add to ${routeName(active)}`;
+      b.onclick = () => { toggleOnMap(kind, key, item); map.closePopup(); };
+      div.append(b);
+    }
+    return div;
+  }
+
   // ---- GPX
   async function loadGpxFile(r, file) {
     if (!file) return;
@@ -234,11 +264,11 @@
     addPhotos(files.filter((f) => f.type.startsWith('image/')));
   }
 
-  // ---- tags
-  let tagsText = $state('');
-  $effect(() => {
-    if (!trip) return;
-    trip.tags = tagsText.split(',').map((t) => t.trim()).filter(Boolean);
+  // ---- tags used on other trips, most used first, for autocomplete
+  const knownTags = $derived.by(() => {
+    const count = new Map();
+    for (const t of otherTrips) for (const tag of t.tags ?? []) count.set(tag, (count.get(tag) ?? 0) + 1);
+    return [...count].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([tag, n]) => ({ tag, count: n }));
   });
 
   // ---- save / delete
@@ -331,14 +361,14 @@
         if (s.lat == null) continue;
         overlay.addLayer(summitMarker(s, { selected: true })
           .bindTooltip(`${multi ? `${ri.number}: ` : ''}${s.ref} ${s.name}`, { permanent: true, direction: 'right', offset: [8, 0] })
-          .on('click', () => toggleOnMap('summit', ref)));
+          .bindPopup(() => itemPopup('summit', s)));
       }
       for (const hid of r.hills) {
         const h = hill(hid);
         if (!h) continue;
         overlay.addLayer(hillMarker(h, { selected: true })
           .bindTooltip(`${multi ? `${ri.number}: ` : ''}${h.name}`, { permanent: true, direction: 'right', offset: [6, 0] })
-          .on('click', () => toggleOnMap('hill', hid)));
+          .bindPopup(() => itemPopup('hill', h)));
       }
       if (r.parking) {
         const m = parkingMarker(r.parking, { draggable: true, label: multi ? `P${ri.number}` : 'P', color: multi ? ri.color : null })
@@ -373,7 +403,6 @@
         otherTrips = index.filter((t) => t.id !== id);
         const t = id ? await getTrip(id) : normalizeTrip({ routes: [blankRoute({ summits: startSummit ? [startSummit] : [] })] });
         if (!t.routes.length) t.routes.push(blankRoute());
-        tagsText = t.tags.join(', ');
         const loaded = {}, texts = {};
         for (const r of t.routes) {
           if (r.parking) texts[r.id] = `${r.parking.lat}, ${r.parking.lon}`;
@@ -392,12 +421,12 @@
       const background = L.layerGroup();
       for (const s of summitsData.summits) {
         background.addLayer(summitMarker(s).setStyle({ fillOpacity: 0.55 })
-          .bindTooltip(`${s.ref} ${s.name} · click to add`).on('click', () => toggleOnMap('summit', s.ref, s)));
+          .bindTooltip(`${s.ref} ${s.name}`).bindPopup(() => itemPopup('summit', s)));
       }
       for (const h of hillsData.hills) {
         if (h.sota) continue;
-        background.addLayer(hillMarker(h).bindTooltip(`${h.name} (${h.type}) · click to add`)
-          .on('click', () => toggleOnMap('hill', h.id, h)));
+        background.addLayer(hillMarker(h).bindTooltip(`${h.name} (${h.type})`)
+          .bindPopup(() => itemPopup('hill', h)));
       }
       background.addTo(map);
       created.control.addOverlay(background, 'All summits and hills');
@@ -435,7 +464,7 @@
           <label for="name">Trip name</label>
           <input id="name" class="wide" bind:value={trip.name} placeholder="e.g. Ben Lui by bike, then Beinn Dubhchraig" />
           <label for="tags" class="gap">Tags <span class="muted">(comma separated)</span></label>
-          <input id="tags" class="wide" bind:value={tagsText} placeholder="winter, bike, long day" />
+          <TagInput id="tags" bind:tags={trip.tags} known={knownTags} />
         </section>
 
         <div class="routes-head row">
@@ -471,12 +500,16 @@
             <div class="chips">
               {#each r.summits as ref}
                 {@const s = summit(ref)}
+                {@const l = summitLinks(s.ref, s.name)}
                 <span class="chip summit"><span class="ref">{s.ref}</span> {s.name}
+                  <a class="chip-link" href={l.sotlas} target="_blank" rel="noopener" title="Open on SOTLAS">SOTLAS</a>
+                  <a class="chip-link" href={l.walkhighlands} target="_blank" rel="noopener" title="Search Walkhighlands">WH</a>
                   <button class="small icon" onclick={() => removeFrom(r, 'summit', ref)} aria-label="Remove">✕</button></span>
               {/each}
               {#each r.hills as hid}
                 {@const h = hill(hid)}
                 <span class="chip hill">{h?.name ?? hid} <span class="muted">{h?.type}</span>
+                  {#if h}<a class="chip-link" href={hillLinks(h).walkhighlands} target="_blank" rel="noopener" title="Search Walkhighlands">WH</a>{/if}
                   <button class="small icon" onclick={() => removeFrom(r, 'hill', hid)} aria-label="Remove">✕</button></span>
               {/each}
               {#if !r.summits.length && !r.hills.length}<span class="muted small">None yet. Search above, or click them on the map.</span>{/if}
@@ -640,6 +673,9 @@
   .active-note { margin: 0; }
   .stat { margin: 0; }
   .park-label { margin-top: 0.2rem; }
+  .chip-link { font-size: 0.75em; margin-left: 0.15em; text-decoration: none; }
+  .chip-link:hover { text-decoration: underline; }
+  :global(.leaflet-popup-content .popup-action) { margin-top: 0.4em; }
   .chips { display: flex; flex-wrap: wrap; gap: 0.35rem; }
   .chip button { border: 0; background: none; padding: 0 0.2em; }
   .suggest { display: flex; flex-wrap: wrap; gap: 0.3rem; align-items: center; }

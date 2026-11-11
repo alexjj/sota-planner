@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import L from 'leaflet';
-  import { createMap, summitMarker, hillMarker, parkingMarker, trackLayer, esc, summitLinks, COLORS, POINTS_COLORS, sizeSummitMarker, sizeHillRing } from '../lib/map.js';
+  import { createMap, summitMarker, hillMarker, parkingMarker, trackLayer, esc, summitLinks, hillLinks, COLORS, POINTS_COLORS, sizeSummitMarker, sizeHillRing } from '../lib/map.js';
   import { getSummits, getHills, getIndex, getTrip, saveTrip } from '../lib/store.js';
   import { showFlash } from '../lib/flash.svelte.js';
   import { fmtDuration } from '../lib/time.js';
@@ -87,7 +87,10 @@
     return `<h4>${esc(h.name)}</h4>
       <div class="muted">${h.type} · ${Math.round(h.alt)} m${h.sota ? ` · SOTA ${esc(h.sota)}` : ' · not a SOTA summit'}</div>
       ${inTrips.length ? `<ul>${inTrips.map(tripLink).join('')}</ul>` : ''}
-      <a class="small" href="https://www.hill-bagging.co.uk/hill-view/?qu=S&rf=${h.id}" target="_blank" rel="noopener">Hill Bagging</a>`;
+      <div class="row small">
+        <a href="${hillLinks(h).hillBagging}" target="_blank" rel="noopener">Hill Bagging</a>
+        <a href="${hillLinks(h).walkhighlands}" target="_blank" rel="noopener">Search WH</a>
+      </div>`;
   }
 
   function highlight(id) {

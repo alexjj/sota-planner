@@ -154,6 +154,14 @@ export function walkhighlandsSearch(name) {
   return `https://duckduckgo.com/?q=${encodeURIComponent(q).replace(/%20/g, '+')}`;
 }
 
+/** Links for a DoBIH hill: Hill Bagging page and a Walkhighlands search. */
+export function hillLinks(h) {
+  return {
+    hillBagging: `https://www.hill-bagging.co.uk/hill-view/?qu=S&rf=${h.id}`,
+    walkhighlands: walkhighlandsSearch(h.name),
+  };
+}
+
 export function summitLinks(ref, name = '') {
   return {
     sotlas: `https://sotl.as/summits/${ref}`,
