@@ -1,0 +1,93 @@
+{
+  "routes": [
+    {
+      "id": "r2ffbv8",
+      "name": "",
+      "gpx": "r2ffbv8.gpx",
+      "stats": {
+        "distanceKm": 3.53,
+        "ascentM": 259,
+        "descentM": 0,
+        "maxEleM": 637,
+        "start": {
+          "lat": 56.738006,
+          "lon": -3.650502
+        }
+      },
+      "parking": {
+        "label": "Start of GPX route",
+        "lat": 56.738006,
+        "lon": -3.650502
+      },
+      "summits": [
+        "GM/CS-094"
+      ],
+      "hills": []
+    }
+  ],
+  "name": "Blath Bhlag for ES day",
+  "tags": [],
+  "notes": "",
+  "links": [],
+  "photos": [
+    {
+      "file": "mwcnj3ee-tg4e-pasted.jpg",
+      "caption": "AZ"
+    },
+    {
+      "file": "mwcnlmbr-dxx9-pasted.jpg",
+      "caption": "Parking"
+    }
+  ],
+  "timetable": {
+    "start": "07:30",
+    "stages": [
+      {
+        "id": "xfkh77",
+        "type": "drive",
+        "label": "",
+        "minutes": 120
+      },
+      {
+        "id": "kgaalb",
+        "type": "walk",
+        "label": "Walk in",
+        "minutes": 60
+      },
+      {
+        "id": "pood6l",
+        "type": "activate",
+        "label": "",
+        "minutes": 60,
+        "summit": "GM/CS-094"
+      },
+      {
+        "id": "w00d7w",
+        "type": "walk",
+        "label": "Walk out",
+        "minutes": 60
+      },
+      {
+        "id": "dxqs2f",
+        "type": "drive",
+        "label": "Drive to cafe",
+        "minutes": 25
+      },
+      {
+        "id": "12wzto",
+        "type": "break",
+        "label": "Lunch",
+        "minutes": 60
+      },
+      {
+        "id": "aw1he8",
+        "type": "drive",
+        "label": "",
+        "minutes": 100
+      }
+    ]
+  },
+  "id": "blath-bhlag-for-es-day",
+  "updated": "2026-11-11T22:01:41.656Z",
+  "created": "2026-11-11T22:01:41.656Z"
+}
