@@ -1,0 +1,132 @@
+{
+  "routes": [
+    {
+      "id": "rys15l9",
+      "name": "",
+      "gpx": "rys15l9.gpx",
+      "stats": {
+        "distanceKm": 4.62,
+        "ascentM": 672,
+        "descentM": 17,
+        "maxEleM": 834,
+        "start": {
+          "lat": 56.715406,
+          "lon": -3.727372
+        }
+      },
+      "parking": {
+        "label": "Start of GPX route",
+        "lat": 56.715406,
+        "lon": -3.727372
+      },
+      "summits": [
+        "GM/CS-065"
+      ],
+      "hills": []
+    },
+    {
+      "id": "rip7d6z",
+      "name": "",
+      "gpx": "rip7d6z.gpx",
+      "stats": {
+        "distanceKm": 3.53,
+        "ascentM": 259,
+        "descentM": 0,
+        "maxEleM": 637,
+        "start": {
+          "lat": 56.738006,
+          "lon": -3.650502
+        }
+      },
+      "parking": {
+        "label": "Start of GPX route",
+        "lat": 56.738006,
+        "lon": -3.650502
+      },
+      "summits": [
+        "GM/CS-094"
+      ],
+      "hills": []
+    }
+  ],
+  "name": "Vrackie and Bhalg",
+  "tags": [],
+  "notes": "",
+  "links": [],
+  "photos": [
+    {
+      "file": "mwcofgp7-opd1-pasted.jpg",
+      "caption": "Bhlag parking"
+    }
+  ],
+  "timetable": {
+    "start": "07:00",
+    "stages": [
+      {
+        "id": "08vpui",
+        "type": "drive",
+        "label": "",
+        "minutes": 130,
+        "route": "rys15l9"
+      },
+      {
+        "id": "9s0een",
+        "type": "walk",
+        "label": "Climb hill",
+        "minutes": 85,
+        "route": "rys15l9"
+      },
+      {
+        "id": "j0u7r8",
+        "type": "activate",
+        "label": "",
+        "minutes": 40,
+        "summit": "GM/CS-065"
+      },
+      {
+        "id": "rzhtn4",
+        "type": "walk",
+        "label": "Back to car",
+        "minutes": 80,
+        "route": "rys15l9"
+      },
+      {
+        "id": "9je0pb",
+        "type": "drive",
+        "label": "",
+        "minutes": 10,
+        "route": "rip7d6z"
+      },
+      {
+        "id": "t9mcjf",
+        "type": "walk",
+        "label": "",
+        "minutes": 60,
+        "route": "rip7d6z"
+      },
+      {
+        "id": "v20lpn",
+        "type": "activate",
+        "label": "",
+        "minutes": 40,
+        "summit": "GM/CS-094"
+      },
+      {
+        "id": "7xe3t0",
+        "type": "walk",
+        "label": "",
+        "minutes": 60,
+        "route": "rip7d6z"
+      },
+      {
+        "id": "1ddlvm",
+        "type": "drive",
+        "label": "",
+        "minutes": 60
+      }
+    ]
+  },
+  "id": "vrackie-and-bhalg",
+  "updated": "2026-11-11T22:14:58.834Z",
+  "created": "2026-11-11T22:14:58.834Z"
+}
