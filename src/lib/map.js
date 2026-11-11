@@ -56,6 +56,41 @@ export function pointsColor(points) {
   return POINTS_COLORS[points] ?? '#000';
 }
 
+/** Linear interpolation through [zoom, value] stops, like a Mapbox "stops" function. */
+function stops(list, z) {
+  if (z <= list[0][0]) return list[0][1];
+  for (let i = 1; i < list.length; i++) {
+    const [z1, v1] = list[i];
+    if (z <= z1) {
+      const [z0, v0] = list[i - 1];
+      return v0 + (v1 - v0) * (z - z0) / (z1 - z0);
+    }
+  }
+  return list[list.length - 1][1];
+}
+
+/**
+ * Summit dot size at a Leaflet zoom, matching sotl.as. SOTLAS uses Mapbox GL,
+ * whose zoom levels are one lower than Leaflet's for the same map scale.
+ */
+export function summitSize(zoom) {
+  const z = zoom - 1;
+  return { radius: stops([[0, 0.1], [10, 8], [22, 20]], z), stroke: stops([[4, 0], [15, 2]], z) };
+}
+
+/** Resize points-coloured summit markers (made with `byPoints`) for the map's zoom. */
+export function sizeSummitMarker(marker, zoom) {
+  const { radius, stroke } = summitSize(zoom);
+  const planned = marker.options.planned;
+  marker.setRadius(radius + (planned ? 1.5 : 0));
+  marker.setStyle({ weight: planned ? 3 : stroke });
+}
+
+/** Keep a Munro ring (hillMarker with `ring`) just outside the summit dot it surrounds. */
+export function sizeHillRing(marker, zoom) {
+  if (marker.options.ring) marker.setRadius(Math.max(8, summitSize(zoom).radius + 4));
+}
+
 /**
  * `byPoints` fills the dot with its points colour; `planned` (with byPoints)
  * then marks summits that are in a trip with a ring in the route colour.
@@ -63,9 +98,9 @@ export function pointsColor(points) {
 export function summitMarker(s, { planned = false, selected = false, byPoints = false } = {}) {
   if (byPoints) {
     return L.circleMarker([s.lat, s.lon], {
-      radius: planned ? 7 : 5,
-      color: planned ? COLORS.route : '#fff', weight: planned ? 3 : 1.5,
-      fillColor: pointsColor(s.points), fillOpacity: 0.95,
+      radius: 5, planned, // sizeSummitMarker sets the size for the zoom
+      color: planned ? COLORS.route : '#fff', weight: planned ? 3 : 1,
+      fillColor: pointsColor(s.points), fillOpacity: 1,
     });
   }
   return L.circleMarker([s.lat, s.lon], {
@@ -80,7 +115,7 @@ export function summitMarker(s, { planned = false, selected = false, byPoints = 
 export function hillMarker(h, { selected = false, color = COLORS.hill, ring = false } = {}) {
   if (ring) {
     return L.circleMarker([h.lat, h.lon], {
-      radius: 8, color, weight: 2.5, fill: true, fillOpacity: 0,
+      radius: 8, ring: true, color, weight: 2.5, fill: true, fillOpacity: 0,
     });
   }
   return L.circleMarker([h.lat, h.lon], {

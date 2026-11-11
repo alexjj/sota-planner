@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import L from 'leaflet';
-  import { createMap, summitMarker, hillMarker, parkingMarker, trackLayer, esc, summitLinks, COLORS, POINTS_COLORS } from '../lib/map.js';
+  import { createMap, summitMarker, hillMarker, parkingMarker, trackLayer, esc, summitLinks, COLORS, POINTS_COLORS, sizeSummitMarker, sizeHillRing } from '../lib/map.js';
   import { getSummits, getHills, getIndex, getTrip, saveTrip } from '../lib/store.js';
   import { showFlash } from '../lib/flash.svelte.js';
   import { fmtDuration } from '../lib/time.js';
@@ -179,6 +179,15 @@
         if (e.layer !== summitGroup) return;
         if (map.hasLayer(summitGroup)) legend.addTo(map); else legend.remove();
       });
+
+      // Dots grow as you zoom in, as on sotl.as.
+      const sizeSummits = () => {
+        const z = map.getZoom();
+        summitGroup.eachLayer((m) => sizeSummitMarker(m, z));
+        munroGroup.eachLayer((m) => sizeHillRing(m, z));
+      };
+      sizeSummits();
+      map.on('zoomend', sizeSummits);
 
       munroGroup.addTo(map);
       summitGroup.addTo(map);
