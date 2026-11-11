@@ -1,0 +1,75 @@
+{
+  "routes": [
+    {
+      "id": "ryivhqp",
+      "name": "",
+      "gpx": null,
+      "stats": null,
+      "parking": null,
+      "summits": [
+        "GM/CS-083",
+        "GM/CS-098"
+      ],
+      "hills": []
+    }
+  ],
+  "name": "CS 83 and 98 possible?",
+  "tags": [
+    "Long day"
+  ],
+  "notes": "Probably much longer as terrain is dire",
+  "links": [],
+  "photos": [],
+  "timetable": {
+    "start": "07:00",
+    "stages": [
+      {
+        "id": "8az1g1",
+        "type": "drive",
+        "label": "",
+        "minutes": 145
+      },
+      {
+        "id": "ax4395",
+        "type": "walk",
+        "label": "Walk in",
+        "minutes": 65
+      },
+      {
+        "id": "6eywiw",
+        "type": "activate",
+        "label": "",
+        "minutes": 40,
+        "summit": "GM/CS-083"
+      },
+      {
+        "id": "q3z2mr",
+        "type": "walk",
+        "label": "Walk to Creag a'Mhadaidh",
+        "minutes": 120
+      },
+      {
+        "id": "yu39rh",
+        "type": "activate",
+        "label": "",
+        "minutes": 40,
+        "summit": "GM/CS-098"
+      },
+      {
+        "id": "05s2jt",
+        "type": "walk",
+        "label": "Walk out",
+        "minutes": 150
+      },
+      {
+        "id": "waujho",
+        "type": "drive",
+        "label": "Drive home",
+        "minutes": 145
+      }
+    ]
+  },
+  "id": "cs-83-and-98-possible",
+  "updated": "2026-11-11T22:27:55.955Z",
+  "created": "2026-11-11T22:27:55.955Z"
+}
