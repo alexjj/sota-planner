@@ -204,8 +204,10 @@ export function saveTrip(s, id, body) {
     const index = (await readJsonAt(s, snap, INDEX)) ?? [];
     const writes = plan.writes.map((w) => ({ ...w, path: dir + w.path }));
     writes.push({ path: INDEX, text: indexText(upsertIndex(index, plan.trip, plan.tracks)) });
-    await commit(s, snap, writes, plan.deletes.map((f) => dir + f),
-      `${isNew ? 'Add' : 'Update'} trip: ${plan.trip.name}`);
+    const verb = isNew ? 'Add trip'
+      : !!plan.trip.done !== !!prev?.done ? (plan.trip.done ? 'Mark trip done' : 'Mark trip not done')
+      : 'Update trip';
+    await commit(s, snap, writes, plan.deletes.map((f) => dir + f), `${verb}: ${plan.trip.name}`);
     return { id: tripId, trip: plan.trip };
   });
 }

@@ -41,6 +41,7 @@ export function normalizeTrip(t) {
     }
   }
   for (const key of ['gpx', 'stats', 'parking', 'summits', 'hills']) delete t[key];
+  // `done: true` archives the trip: it moves to the closed "Done" list on the home page.
   t.name ??= '';
   t.tags ??= [];
   t.notes ??= '';

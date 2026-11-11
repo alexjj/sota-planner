@@ -2,7 +2,8 @@
   import { onMount } from 'svelte';
   import L from 'leaflet';
   import { createMap, summitMarker, hillMarker, parkingMarker, trackLayer, esc, summitLinks, COLORS } from '../lib/map.js';
-  import { getSummits, getHills, getIndex } from '../lib/store.js';
+  import { getSummits, getHills, getIndex, getTrip, saveTrip } from '../lib/store.js';
+  import { showFlash } from '../lib/flash.svelte.js';
   import { fmtDuration } from '../lib/time.js';
 
   let { edit = false } = $props();
@@ -18,7 +19,11 @@
   let loading = $state(true);
   let error = $state('');
   let highlighted = $state(null);
+  let archiveOpen = $state(false);
+  let saving = $state(new Set()); // trip ids being marked done / not done
+  let routeGroup = $state.raw(null);
   const trackLayers = new Map();
+  const tripGroups = new Map(); // trip id -> its lines and parking on the map
 
   const filtered = $derived.by(() => {
     const q = query.trim().toLowerCase();
@@ -31,8 +36,37 @@
       return words.join(' ').toLowerCase().includes(q);
     });
   });
+  const active = $derived(filtered.filter((t) => !t.done));
+  const archived = $derived(filtered.filter((t) => t.done));
+  const activeTotal = $derived(trips.filter((t) => !t.done).length);
 
-  const tripLink = (t) => `<li><a href="#/trip/${encodeURIComponent(t.id)}">${esc(t.name)}</a></li>`;
+  // Done trips stay off the map unless the Done list is open.
+  $effect(() => {
+    if (!routeGroup) return;
+    for (const t of trips) {
+      const group = tripGroups.get(t.id);
+      if (!group) continue;
+      if (!t.done || archiveOpen) routeGroup.addLayer(group);
+      else routeGroup.removeLayer(group);
+    }
+  });
+
+  async function setDone(t, done) {
+    saving = new Set(saving).add(t.id);
+    try {
+      const trip = await getTrip(t.id);
+      await saveTrip(t.id, { trip: { ...trip, done: done || undefined }, gpx: {}, newPhotos: [] });
+      trips = trips.map((x) => (x.id === t.id ? { ...x, done } : x));
+    } catch (e) {
+      showFlash(`Couldn't update "${t.name}": ${e.message}`);
+    } finally {
+      const next = new Set(saving);
+      next.delete(t.id);
+      saving = next;
+    }
+  }
+
+  const tripLink = (t) => `<li><a href="#/trip/${encodeURIComponent(t.id)}">${esc(t.name)}</a>${t.done ? ' <span class="muted">(done)</span>' : ''}</li>`;
 
   function summitPopup(s) {
     const links = summitLinks(s.ref, s.name);
@@ -87,24 +121,27 @@
 
       // One layer per trip holding all its routes' lines, so hovering a trip
       // highlights every route in it.
-      const routeGroup = L.layerGroup();
+      const routes = L.layerGroup();
       for (const t of trips) {
+        const group = L.featureGroup();
         const lines = L.featureGroup();
         for (const r of t.routes) {
           if (r.track?.length) lines.addLayer(trackLayer(r.track));
           if (r.parking) {
-            routeGroup.addLayer(parkingMarker(r.parking).bindPopup(
+            group.addLayer(parkingMarker(r.parking).bindPopup(
               `<h4>Parking</h4>${esc(r.parking.label ?? '')}<ul>${tripLink(t)}</ul>`));
           }
         }
+        tripGroups.set(t.id, group);
         if (!lines.getLayers().length) continue;
         lines.bindTooltip(t.name, { sticky: true });
         lines.on('click', () => (location.hash = `#/trip/${encodeURIComponent(t.id)}`));
         lines.on('mouseover', () => highlight(t.id));
         lines.on('mouseout', () => highlight(null));
         trackLayers.set(t.id, lines);
-        routeGroup.addLayer(lines);
+        group.addLayer(lines);
       }
+      routeGroup = routes; // the effect above adds each trip's group
 
       // Munros: all of them, so they still show with SOTA summits switched off.
       // A Munro that is also a SOTA summit is drawn as a ring around the SOTA dot.
@@ -130,15 +167,15 @@
 
       munroGroup.addTo(map);
       summitGroup.addTo(map);
-      routeGroup.addTo(map);
+      routes.addTo(map);
       created.control.addOverlay(summitGroup, `<span style="color:${COLORS.summit}">●</span> SOTA summits`);
       created.control.addOverlay(munroGroup, `<span style="color:${COLORS.hill}">●</span> Munros`);
       created.control.addOverlay(topGroup, `<span style="color:${COLORS.top}">●</span> Other tops`);
-      created.control.addOverlay(routeGroup, `<span style="color:${COLORS.route}">━</span> Routes & parking`);
+      created.control.addOverlay(routes, `<span style="color:${COLORS.route}">━</span> Routes & parking`);
       // Toggling a layer back on draws it on top, so keep summits and routes above the hills.
       map.on('overlayadd', () => {
         if (map.hasLayer(summitGroup)) summitGroup.eachLayer((l) => l.bringToFront());
-        if (map.hasLayer(routeGroup)) routeGroup.eachLayer((l) => l.bringToFront?.());
+        if (map.hasLayer(routes)) routes.eachLayer((l) => l.bringToFront?.());
       });
     })();
 
@@ -146,6 +183,7 @@
   });
 
   function zoomTo(r) {
+    if (r.done) archiveOpen = true;
     const layer = trackLayers.get(r.id);
     if (layer) map.fitBounds(layer.getBounds(), { padding: [30, 30] });
     else {
@@ -154,6 +192,39 @@
     }
   }
 </script>
+
+{#snippet card(r)}
+  <li class:active={highlighted === r.id} class:done={r.done} role="group"
+      onmouseenter={() => highlight(r.id)} onmouseleave={() => highlight(null)}>
+    <div class="title">
+      <a class="name" href="#/trip/{encodeURIComponent(r.id)}">{r.name}</a>
+      {#if edit}
+        <label class="done-box small muted" title={r.done ? 'Move back to the trip list' : 'Mark as done and move to the Done list'}>
+          <input type="checkbox" checked={!!r.done} disabled={saving.has(r.id)}
+                 onchange={(e) => setDone(r, e.currentTarget.checked)} />
+          {saving.has(r.id) ? 'Saving…' : 'Done'}
+        </label>
+      {/if}
+    </div>
+    <div class="chips">
+      {#each r.summits as ref}
+        <button class="chip summit" onclick={() => (summitFilter = ref)} title="Show trips for {ref}">
+          <span class="ref">{ref}</span> {summitsData?.byRef.get(ref)?.name ?? ''}
+        </button>
+      {/each}
+      {#each r.hills as id}
+        <span class="chip hill">{hillsData?.byId.get(id)?.name ?? id}</span>
+      {/each}
+    </div>
+    <div class="stats muted small tabular">
+      {#if r.routes.length > 1}{r.routes.length} routes · {/if}
+      {#if r.stats}{r.stats.distanceKm} km · {r.stats.ascentM} m ascent{/if}
+      {#if r.totalMinutes}{r.stats ? ' · ' : ''}{fmtDuration(r.totalMinutes)} door to door{/if}
+      <span class="spacer"></span>
+      <button class="small" onclick={() => zoomTo(r)}>Show on map</button>
+    </div>
+  </li>
+{/snippet}
 
 <div class="home">
   <aside>
@@ -179,32 +250,19 @@
         {/if}
       </div>
     {:else}
-      <p class="muted small count">{filtered.length} of {trips.length} trips</p>
+      <p class="muted small count">{active.length} of {activeTotal} trips</p>
       <ul class="routes">
-        {#each filtered as r (r.id)}
-          <li class:active={highlighted === r.id}
-              onmouseenter={() => highlight(r.id)} onmouseleave={() => highlight(null)}>
-            <a class="name" href="#/trip/{encodeURIComponent(r.id)}">{r.name}</a>
-            <div class="chips">
-              {#each r.summits as ref}
-                <button class="chip summit" onclick={() => (summitFilter = ref)} title="Show trips for {ref}">
-                  <span class="ref">{ref}</span> {summitsData?.byRef.get(ref)?.name ?? ''}
-                </button>
-              {/each}
-              {#each r.hills as id}
-                <span class="chip hill">{hillsData?.byId.get(id)?.name ?? id}</span>
-              {/each}
-            </div>
-            <div class="stats muted small tabular">
-              {#if r.routes.length > 1}{r.routes.length} routes · {/if}
-              {#if r.stats}{r.stats.distanceKm} km · {r.stats.ascentM} m ascent{/if}
-              {#if r.totalMinutes}{r.stats ? ' · ' : ''}{fmtDuration(r.totalMinutes)} door to door{/if}
-              <span class="spacer"></span>
-              <button class="small" onclick={() => zoomTo(r)}>Show on map</button>
-            </div>
-          </li>
-        {/each}
+        {#each active as r (r.id)}{@render card(r)}{/each}
       </ul>
+      {#if trips.some((t) => t.done)}
+        <details class="archive" bind:open={archiveOpen}>
+          <summary>Done <span class="muted">({archived.length})</span></summary>
+          <ul class="routes">
+            {#each archived as r (r.id)}{@render card(r)}{/each}
+          </ul>
+          {#if !archived.length}<p class="muted small">No done trips match.</p>{/if}
+        </details>
+      {/if}
     {/if}
     <p class="attrib muted small">
       Summits: SOTA ({summitsData?.updated ?? '…'}). Hills: Database of British and Irish Hills (CC BY 4.0).
@@ -232,6 +290,12 @@
     padding: 0.6rem 0.7rem; display: flex; flex-direction: column; gap: 0.35rem;
   }
   .routes li.active { border-color: var(--accent); }
+  .routes li.done { opacity: 0.8; }
+  .title { display: flex; align-items: baseline; gap: 0.5rem; }
+  .done-box { margin-left: auto; display: flex; align-items: center; gap: 0.25rem; cursor: pointer; white-space: nowrap; }
+  .done-box input { margin: 0; }
+  .archive summary { cursor: pointer; font-weight: 600; padding: 0.2rem 0; }
+  .archive .routes { margin-top: 0.5rem; }
   .name { font-weight: 600; color: var(--text); text-decoration: none; }
   .name:hover { color: var(--accent); }
   .chips { display: flex; flex-wrap: wrap; gap: 0.3rem; }

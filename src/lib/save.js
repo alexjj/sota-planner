@@ -104,6 +104,7 @@ export function indexEntry(trip, tracks = {}) {
   trip = normalizeTrip(trip);
   return {
     id: trip.id, name: trip.name, tags: trip.tags,
+    done: !!trip.done,
     summits: tripSummits(trip), hills: tripHills(trip),
     stats: tripStats(trip.routes),
     totalMinutes: trip.timetable.stages.length ? schedule(trip.timetable.start, trip.timetable.stages).total : null,
