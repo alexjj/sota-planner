@@ -17,8 +17,13 @@
   "tags": [
     "Long day"
   ],
-  "notes": "Probably much longer as terrain is dire",
-  "links": [],
+  "notes": "Probably much longer as terrain is dire.\n\nI wonder about cycling east side of Loch Garry back and forth and then up and down 83?",
+  "links": [
+    {
+      "label": "WH Route from Dalnaspidal",
+      "url": "https://www.walkhighlands.co.uk/Forum/viewtopic.php?f=9&t=117877"
+    }
+  ],
   "photos": [],
   "timetable": {
     "start": "07:00",
@@ -70,6 +75,6 @@
     ]
   },
   "id": "cs-83-and-98-possible",
-  "updated": "2026-11-11T22:27:55.955Z",
+  "updated": "2026-11-11T22:36:21.109Z",
   "created": "2026-11-11T22:27:55.955Z"
 }
