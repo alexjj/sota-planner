@@ -47,7 +47,27 @@ export const COLORS = {
   selected: '#e8590c',
 };
 
-export function summitMarker(s, { planned = false, selected = false } = {}) {
+/** SOTA points -> colour, as on sotl.as (green for 1 point through to red for 10). */
+export const POINTS_COLORS = {
+  1: '#4d7a20', 2: '#6da536', 4: '#aea727', 6: '#efa818', 8: '#dc5d04', 10: '#c8101e',
+};
+
+export function pointsColor(points) {
+  return POINTS_COLORS[points] ?? '#000';
+}
+
+/**
+ * `byPoints` fills the dot with its points colour; `planned` (with byPoints)
+ * then marks summits that are in a trip with a ring in the route colour.
+ */
+export function summitMarker(s, { planned = false, selected = false, byPoints = false } = {}) {
+  if (byPoints) {
+    return L.circleMarker([s.lat, s.lon], {
+      radius: planned ? 7 : 5,
+      color: planned ? COLORS.route : '#fff', weight: planned ? 3 : 1.5,
+      fillColor: pointsColor(s.points), fillOpacity: 0.95,
+    });
+  }
   return L.circleMarker([s.lat, s.lon], {
     radius: selected ? 8 : planned ? 7 : 5,
     color: '#fff', weight: 1.5,

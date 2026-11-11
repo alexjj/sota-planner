@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import L from 'leaflet';
-  import { createMap, summitMarker, hillMarker, parkingMarker, trackLayer, esc, summitLinks, COLORS } from '../lib/map.js';
+  import { createMap, summitMarker, hillMarker, parkingMarker, trackLayer, esc, summitLinks, COLORS, POINTS_COLORS } from '../lib/map.js';
   import { getSummits, getHills, getIndex, getTrip, saveTrip } from '../lib/store.js';
   import { showFlash } from '../lib/flash.svelte.js';
   import { fmtDuration } from '../lib/time.js';
@@ -160,15 +160,30 @@
 
       const summitGroup = L.layerGroup();
       for (const s of summitsData.summits) {
-        summitGroup.addLayer(summitMarker(s, { planned: planned.has(s.ref) })
+        summitGroup.addLayer(summitMarker(s, { planned: planned.has(s.ref), byPoints: true })
           .bindPopup(() => summitPopup(s))
           .bindTooltip(`${s.ref} ${s.name}`));
       }
 
+      // Key to the summit colours, shown while SOTA summits are on.
+      const legend = L.control({ position: 'topleft' });
+      legend.onAdd = () => {
+        const div = L.DomUtil.create('div', 'points-legend');
+        div.innerHTML = `<b>Points</b>${Object.entries(POINTS_COLORS).map(([p, c]) =>
+          `<span><i style="background:${c}"></i>${p}</span>`).join('')}
+          <span><i class="ring" style="border-color:${COLORS.route}"></i>in a trip</span>`;
+        return div;
+      };
+      legend.addTo(map);
+      map.on('overlayadd overlayremove', (e) => {
+        if (e.layer !== summitGroup) return;
+        if (map.hasLayer(summitGroup)) legend.addTo(map); else legend.remove();
+      });
+
       munroGroup.addTo(map);
       summitGroup.addTo(map);
       routes.addTo(map);
-      created.control.addOverlay(summitGroup, `<span style="color:${COLORS.summit}">●</span> SOTA summits`);
+      created.control.addOverlay(summitGroup, `<span style="color:${POINTS_COLORS[6]}">●</span> SOTA summits`);
       created.control.addOverlay(munroGroup, `<span style="color:${COLORS.hill}">●</span> Munros`);
       created.control.addOverlay(topGroup, `<span style="color:${COLORS.top}">●</span> Other tops`);
       created.control.addOverlay(routes, `<span style="color:${COLORS.route}">━</span> Routes & parking`);
@@ -304,6 +319,17 @@
   .spacer { flex: 1; }
   .empty { padding: 1rem 0; }
   .attrib { margin-top: auto; }
+  .map :global(.points-legend) {
+    background: rgba(255, 255, 255, 0.9); color: #222; border-radius: 4px;
+    padding: 4px 8px; font-size: 12px; line-height: 1.5;
+    display: flex; flex-direction: column; gap: 1px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  }
+  .map :global(.points-legend span) { display: inline-flex; align-items: center; gap: 3px; }
+  .map :global(.points-legend i) {
+    display: inline-block; width: 10px; height: 10px; border-radius: 50%; border: 1px solid #fff;
+  }
+  .map :global(.points-legend i.ring) { background: #ddd; border-width: 2.5px; width: 8px; height: 8px; }
   @media (max-width: 800px) {
     .home { flex-direction: column-reverse; }
     aside { width: auto; max-height: 45%; border-right: 0; border-top: 1px solid var(--line); }
