@@ -1,0 +1,96 @@
+{
+  "routes": [
+    {
+      "id": "rg7dapk",
+      "name": "",
+      "gpx": "rg7dapk.gpx",
+      "stats": {
+        "distanceKm": 4.62,
+        "ascentM": 672,
+        "descentM": 17,
+        "maxEleM": 834,
+        "start": {
+          "lat": 56.715406,
+          "lon": -3.727372
+        }
+      },
+      "parking": {
+        "label": "Start of GPX route",
+        "lat": 56.715406,
+        "lon": -3.727372
+      },
+      "summits": [
+        "GM/CS-065"
+      ],
+      "hills": []
+    }
+  ],
+  "name": "Vrackie on ES day",
+  "tags": [
+    "Corbett"
+  ],
+  "notes": "",
+  "links": [
+    {
+      "label": "Route",
+      "url": "https://www.plotaroute.com/route/3484617"
+    }
+  ],
+  "photos": [
+    {
+      "file": "mwcn3326-msx1-pasted.jpg",
+      "caption": "Parking"
+    }
+  ],
+  "timetable": {
+    "start": "07:00",
+    "stages": [
+      {
+        "id": "5w3911",
+        "type": "drive",
+        "label": "",
+        "minutes": 130
+      },
+      {
+        "id": "ezyc2v",
+        "type": "walk",
+        "label": "Walk in",
+        "minutes": 85
+      },
+      {
+        "id": "deiqxt",
+        "type": "activate",
+        "label": "",
+        "minutes": 40,
+        "summit": "GM/CS-065"
+      },
+      {
+        "id": "vz7u3w",
+        "type": "walk",
+        "label": "Walk out",
+        "minutes": 80
+      },
+      {
+        "id": "4u6pys",
+        "type": "drive",
+        "label": "Drive to cafe",
+        "minutes": 35
+      },
+      {
+        "id": "2lamo6",
+        "type": "break",
+        "label": "Lunch",
+        "minutes": 60
+      },
+      {
+        "id": "7bhhix",
+        "type": "drive",
+        "label": "Drive home",
+        "minutes": 100
+      }
+    ]
+  },
+  "id": "vrackie-on-es-day",
+  "updated": "2026-11-11T21:45:00.559Z",
+  "created": "2026-11-11T21:45:00.559Z"
+}
