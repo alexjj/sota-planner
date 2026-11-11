@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import L from 'leaflet';
-  import { createMap, summitMarker, hillMarker, parkingMarker, trackLayer, esc, summitLinks, hillLinks, COLORS, POINTS_COLORS, sizeSummitMarker, sizeHillRing } from '../lib/map.js';
+  import { createMap, summitMarker, hillMarker, parkingMarker, trackLayer, esc, summitLinks, hillLinks, COLORS, POINTS_COLORS, sizeSummitsOnZoom } from '../lib/map.js';
   import { getSummits, getHills, getIndex, getTrip, saveTrip } from '../lib/store.js';
   import { showFlash } from '../lib/flash.svelte.js';
   import { fmtDuration } from '../lib/time.js';
@@ -106,6 +106,7 @@
     try { view = JSON.parse(sessionStorage.getItem(VIEW_KEY)); } catch {}
     const created = createMap(mapEl, { view });
     map = created.map;
+    sizeSummitsOnZoom(map); // dots grow as you zoom in, as on sotl.as
     map.on('moveend', () => {
       const c = map.getCenter();
       try { sessionStorage.setItem(VIEW_KEY, JSON.stringify({ center: [c.lat, c.lng], zoom: map.getZoom() })); } catch {}
@@ -163,7 +164,7 @@
 
       const summitGroup = L.layerGroup();
       for (const s of summitsData.summits) {
-        summitGroup.addLayer(summitMarker(s, { planned: planned.has(s.ref), byPoints: true })
+        summitGroup.addLayer(summitMarker(s, { planned: planned.has(s.ref) })
           .bindPopup(() => summitPopup(s))
           .bindTooltip(`${s.ref} ${s.name}`));
       }
@@ -182,15 +183,6 @@
         if (e.layer !== summitGroup) return;
         if (map.hasLayer(summitGroup)) legend.addTo(map); else legend.remove();
       });
-
-      // Dots grow as you zoom in, as on sotl.as.
-      const sizeSummits = () => {
-        const z = map.getZoom();
-        summitGroup.eachLayer((m) => sizeSummitMarker(m, z));
-        munroGroup.eachLayer((m) => sizeHillRing(m, z));
-      };
-      sizeSummits();
-      map.on('zoomend', sizeSummits);
 
       munroGroup.addTo(map);
       summitGroup.addTo(map);

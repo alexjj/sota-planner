@@ -1,7 +1,7 @@
 <script>
   import { onMount, tick } from 'svelte';
   import L from 'leaflet';
-  import { createMap, summitMarker, hillMarker, parkingMarker, trackLayer, esc, summitLinks, hillLinks } from '../lib/map.js';
+  import { createMap, summitMarker, hillMarker, parkingMarker, trackLayer, esc, summitLinks, hillLinks, sizeSummitsOnZoom } from '../lib/map.js';
   import {
     getSummits, getHills, getTrip, getIndex, getGpxText, photoUrl, parseLatLon,
     createTrip, saveTrip, deleteTrip, getStatus,
@@ -359,7 +359,7 @@
       for (const ref of r.summits) {
         const s = summit(ref);
         if (s.lat == null) continue;
-        overlay.addLayer(summitMarker(s, { selected: true })
+        overlay.addLayer(summitMarker(s, { planned: true, ring: ri.color })
           .bindTooltip(`${multi ? `${ri.number}: ` : ''}${s.ref} ${s.name}`, { permanent: true, direction: 'right', offset: [8, 0] })
           .bindPopup(() => itemPopup('summit', s)));
       }
@@ -390,6 +390,7 @@
     const created = createMap(mapEl);
     overlay = L.layerGroup().addTo(created.map);
     map = created.map;
+    sizeSummitsOnZoom(map);
     map.on('click', (e) => {
       if (!pickParking || !active) return;
       setParking(active, { lat: round6(e.latlng.lat), lon: round6(e.latlng.lng) });
@@ -420,7 +421,7 @@
       // All summits and other hills, faint, so you can click to add them.
       const background = L.layerGroup();
       for (const s of summitsData.summits) {
-        background.addLayer(summitMarker(s).setStyle({ fillOpacity: 0.55 })
+        background.addLayer(summitMarker(s)
           .bindTooltip(`${s.ref} ${s.name}`).bindPopup(() => itemPopup('summit', s)));
       }
       for (const h of hillsData.hills) {

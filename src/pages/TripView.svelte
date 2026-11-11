@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import L from 'leaflet';
-  import { createMap, summitMarker, hillMarker, parkingMarker, trackLayer, esc, summitLinks } from '../lib/map.js';
+  import { createMap, summitMarker, hillMarker, parkingMarker, trackLayer, esc, summitLinks, sizeSummitsOnZoom } from '../lib/map.js';
   import { getSummits, getHills, getTrip, getGpxText, gpxUrl, photoUrl, googleMapsUrl } from '../lib/store.js';
   import { parseGpx, naismithMinutes } from '../lib/gpx.js';
   import { fmtDuration } from '../lib/time.js';
@@ -57,6 +57,7 @@
 
   onMount(() => {
     map = createMap(mapEl).map;
+    sizeSummitsOnZoom(map);
     (async () => {
       try {
         [trip, summitsData, hillsData] = await Promise.all([getTrip(id), getSummits(), getHills()]);
@@ -89,7 +90,7 @@
         for (const ref of r.summits) {
           const s = summit(ref);
           if (s.lat == null) continue;
-          summitMarker(s, { selected: true }).addTo(map)
+          summitMarker(s, { planned: true, ring: ri.color }).addTo(map)
             .bindTooltip(`${s.ref} ${s.name}`, { permanent: true, direction: 'right', offset: [8, 0] })
             .bindPopup(`<h4><span class="ref">${esc(s.ref)}</span> ${esc(s.name)}</h4>
               <div class="muted">${s.alt} m · ${s.points} pts</div>

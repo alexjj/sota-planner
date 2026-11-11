@@ -78,7 +78,7 @@ export function summitSize(zoom) {
   return { radius: stops([[0, 0.1], [10, 8], [22, 20]], z), stroke: stops([[4, 0], [15, 2]], z) };
 }
 
-/** Resize points-coloured summit markers (made with `byPoints`) for the map's zoom. */
+/** Resize a summit dot (from summitMarker) for the map's zoom. */
 export function sizeSummitMarker(marker, zoom) {
   const { radius, stroke } = summitSize(zoom);
   const planned = marker.options.planned;
@@ -91,23 +91,28 @@ export function sizeHillRing(marker, zoom) {
   if (marker.options.ring) marker.setRadius(Math.max(8, summitSize(zoom).radius + 4));
 }
 
+/** Size summit dots and Munro rings on this map for its zoom, now and as it changes. */
+export function sizeSummitsOnZoom(map) {
+  const size = (l, z) => {
+    if (l.options?.summitDot) sizeSummitMarker(l, z);
+    else if (l.options?.ring) sizeHillRing(l, z);
+  };
+  map.on('layeradd', (e) => size(e.layer, map.getZoom()));
+  map.on('zoomend', () => {
+    const z = map.getZoom();
+    map.eachLayer((l) => size(l, z));
+  });
+}
+
 /**
- * `byPoints` fills the dot with its points colour; `planned` (with byPoints)
- * then marks summits that are in a trip with a ring in the route colour.
+ * A SOTA summit dot in its points colour, sized by zoom (see sizeSummitsOnZoom).
+ * `planned` (a summit in a trip) adds a ring, in `ring` colour or the route blue.
  */
-export function summitMarker(s, { planned = false, selected = false, byPoints = false } = {}) {
-  if (byPoints) {
-    return L.circleMarker([s.lat, s.lon], {
-      radius: 5, planned, // sizeSummitMarker sets the size for the zoom
-      color: planned ? COLORS.route : '#fff', weight: planned ? 3 : 1,
-      fillColor: pointsColor(s.points), fillOpacity: 1,
-    });
-  }
+export function summitMarker(s, { planned = false, ring = COLORS.route } = {}) {
   return L.circleMarker([s.lat, s.lon], {
-    radius: selected ? 8 : planned ? 7 : 5,
-    color: '#fff', weight: 1.5,
-    fillColor: selected ? COLORS.selected : planned ? COLORS.planned : COLORS.summit,
-    fillOpacity: 0.95,
+    radius: 5, summitDot: true, planned,
+    color: planned ? ring : '#fff', weight: planned ? 3 : 1,
+    fillColor: pointsColor(s.points), fillOpacity: 1,
   });
 }
 
