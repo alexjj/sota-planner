@@ -3,7 +3,7 @@
   import L from 'leaflet';
   import { createMap, summitMarker, hillMarker, parkingMarker, trackLayer, esc, summitLinks, hillLinks, sizeSummitsOnZoom } from '../lib/map.js';
   import {
-    getSummits, getHills, getTrip, getIndex, getGpxText, photoUrl, parseLatLon,
+    getSummits, getHills, getTrip, getIndex, getGpxText, photoUrl, parseLatLon, googleMapsPlaceUrl,
     createTrip, saveTrip, deleteTrip, getStatus,
   } from '../lib/store.js';
   import { showFlash } from '../lib/flash.svelte.js';
@@ -549,6 +549,10 @@
                 {pickParking && r.id === active?.id ? 'Click the map…' : 'Pick on map'}
               </button>
               {#if lines[r.id]?.length}<button class="small" onclick={() => parkingFromGpx(r)}>Use GPX start</button>{/if}
+              {#if r.parking}
+                <a class="button small" href={googleMapsPlaceUrl(r.parking)} target="_blank" rel="noopener"
+                   title="Open this spot in Google Maps in a new tab">Google Maps</a>
+              {/if}
               {#if r.parking}<button class="small danger" onclick={() => { r.parking = null; parkingText[r.id] = ''; }}>Clear</button>{/if}
             </div>
             {#if r.parking}

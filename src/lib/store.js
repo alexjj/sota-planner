@@ -125,6 +125,11 @@ export function parseLatLon(text) {
 }
 
 /** Google Maps directions to `to`, from `from` if given (else your location). */
+/** Google Maps with a pin at a point (not directions). */
+export function googleMapsPlaceUrl(p) {
+  return `https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lon}`;
+}
+
 export function googleMapsUrl(to, from = null) {
   const origin = from ? `&origin=${from.lat},${from.lon}` : '';
   return `https://www.google.com/maps/dir/?api=1${origin}&destination=${to.lat},${to.lon}&travelmode=driving`;
