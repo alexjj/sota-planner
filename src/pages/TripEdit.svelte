@@ -9,7 +9,7 @@
   import { showFlash } from '../lib/flash.svelte.js';
   import { parseGpx, gpxStats, distanceM } from '../lib/gpx.js';
   import { resizeImage, photoFileName } from '../lib/image.js';
-  import { normalizeTrip, blankRoute, routeInfo, routeLabel, stageRouteId, newId } from '../lib/trip.js';
+  import { normalizeTrip, blankRoute, routeInfo, routeLabel, stageRouteId, routeStages, newId } from '../lib/trip.js';
   import SummitPicker from '../components/SummitPicker.svelte';
   import TagInput from '../components/TagInput.svelte';
   import TimetableEditor from '../components/TimetableEditor.svelte';
@@ -106,16 +106,37 @@
     if (activeId === r.id) activeId = trip.routes[0]?.id ?? null;
   }
 
-  /** Copy a route (GPX, parking, summits and its timetable stages) from another trip. */
+  /** Rough drive time between two parking spots: straight line x1.4 for roads, at 50 km/h. */
+  function guessDriveMinutes(a, b) {
+    if (!a || !b) return 30;
+    const km = (distanceM(a, b) / 1000) * 1.4;
+    return Math.max(5, Math.round((km * 60) / 50 / 5) * 5);
+  }
+
+  /**
+   * Copy a route (GPX, parking, summits) from another trip, with its timetable
+   * stages. Stages already in this trip are kept: the copied ones go after them,
+   * before the drive home.
+   */
   async function copyRoute(value) {
     if (!value) return;
     const [tripId, routeId] = value.split('|');
     try {
       const src = await getTrip(tripId);
       const from = src.routes.find((r) => r.id === routeId);
+      const tt = trip.timetable;
       // A new trip starts with one empty route: replace it rather than add after it.
       const empty = (x) => !x.gpx && !lines[x.id]?.length && !x.summits.length && !x.hills.length && !x.parking && !x.name;
-      if (trip.routes.length === 1 && empty(trip.routes[0])) trip.routes = [];
+      if (trip.routes.length === 1 && empty(trip.routes[0])) {
+        trip.routes = [];
+      } else if (trip.routes.length === 1) {
+        // Going from one route to two: link this trip's own stages to its first route.
+        const own = routeStages(trip, trip.routes[0].id);
+        for (const st of [own.drive, ...own.stages]) {
+          if (st && !st.route && st.type !== 'activate') st.route = trip.routes[0].id;
+        }
+      }
+      const prev = trip.routes.at(-1);
       const r = addRoute({
         name: from.name, parking: from.parking ? { ...from.parking } : null,
         summits: [...from.summits], hills: [...from.hills],
@@ -126,17 +147,42 @@
         lines[r.id] = parseGpx(text);
       }
       if (r.parking) parkingText[r.id] = `${r.parking.lat}, ${r.parking.lon}`;
-      const stages = src.timetable.stages
-        .filter((s) => stageRouteId(s, src) === from.id && s.type !== 'drive')
-        .map((s) => ({ ...s, id: newId(), ...(s.route ? { route: r.id } : {}) }));
-      if (stages.length) {
-        const drive = { id: newId(), type: 'drive', label: '', minutes: 30, route: r.id };
-        // Put it before the final drive home, if there is one.
-        const last = trip.timetable.stages.at(-1);
-        const at = last && last.type === 'drive' && !last.route ? trip.timetable.stages.length - 1 : trip.timetable.stages.length;
-        trip.timetable.stages.splice(at, 0, drive, ...stages);
+
+      const theirs = routeStages(src, from.id);
+      const copy = (st) => {
+        const c = { ...$state.snapshot(st), id: newId() };
+        // Labels like "Walk in (route 2)" would point at the wrong route here.
+        if (c.label) c.label = c.label.replace(/\s*\(route \d+\)$/, '');
+        if (c.type === 'activate') delete c.route; // follows the route holding its summit
+        else c.route = r.id;
+        return c;
+      };
+      const copied = theirs.stages.map(copy);
+      let added = copied.length, how = '';
+      if (!tt.stages.length) {
+        // Empty timetable: take their drive there and drive home too.
+        const home = src.timetable.stages.at(-1);
+        // Their drive there is from home only if this was their first route.
+        const fromHome = theirs.drive && src.routes[0]?.id === from.id;
+        const there = fromHome ? copy(theirs.drive) : { id: newId(), type: 'drive', label: '', minutes: 60, route: r.id };
+        tt.stages.push(there, ...copied);
+        added += 1;
+        if (home?.type === 'drive' && home !== theirs.drive && !home.route) {
+          tt.stages.push({ ...$state.snapshot(home), id: newId() });
+          added += 1;
+        }
+      } else if (copied.length || from.parking) {
+        // Add a drive from the last route's parking, then their stages, before the drive home.
+        const minutes = guessDriveMinutes(prev?.parking, r.parking);
+        const drive = { id: newId(), type: 'drive', label: '', minutes, route: r.id };
+        const last = tt.stages.at(-1);
+        const at = last && last.type === 'drive' && !last.route ? tt.stages.length - 1 : tt.stages.length;
+        tt.stages.splice(at, 0, drive, ...copied);
+        added += 1;
+        how = prev?.parking && r.parking ? ` The ${minutes} min drive there is a rough guess: check it with the drive-time links.` : '';
       }
-      notice = `Copied "${routeLabel(from, 0, summitsData.byRef)}" from ${src.name}${stages.length ? `, with ${stages.length} timetable stages and a drive to it` : ''}.`;
+      notice = `Copied "${routeLabel(from, 0, summitsData.byRef)}" from ${src.name}` +
+        (added ? `, with ${added} timetable stage${added === 1 ? '' : 's'}.${how}` : '.');
       fitAll();
     } catch (e) {
       error = `Couldn't copy that route: ${e.message}`;

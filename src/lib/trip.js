@@ -70,6 +70,30 @@ export function stageRouteId(stage, trip) {
   return null;
 }
 
+/**
+ * The timetable stages for one route: the drive to it, and the stages on the hill.
+ * Multi-route trips link stages to routes. Single-route trips usually don't, so
+ * there it's the first drive and the stages after it up to the next drive
+ * (leaving out a later cafe stop or the drive home).
+ * @returns {{ drive: object|null, stages: object[] }}
+ */
+export function routeStages(trip, routeId) {
+  const all = trip.timetable?.stages ?? [];
+  const linked = trip.routes.length > 1 || all.some((s) => s.route);
+  if (linked) {
+    return {
+      drive: all.find((s) => s.type === 'drive' && stageRouteId(s, trip) === routeId) ?? null,
+      stages: all.filter((s) => s.type !== 'drive' && stageRouteId(s, trip) === routeId),
+    };
+  }
+  let i = all.findIndex((s) => s.type !== 'drive');
+  if (i < 0) return { drive: null, stages: [] };
+  const drive = i > 0 ? all[i - 1] : null;
+  const stages = [];
+  for (; i < all.length && all[i].type !== 'drive'; i++) stages.push(all[i]);
+  return { drive, stages };
+}
+
 /** A readable name: the route's own, else its summits, else "Route n". */
 export function routeLabel(route, index, summitsByRef) {
   if (route.name?.trim()) return route.name.trim();
