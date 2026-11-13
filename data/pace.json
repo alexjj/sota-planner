@@ -1,0 +1,106 @@
+{
+  "walks": [
+    {
+      "id": "wodzj24",
+      "name": "Creag na Doire Duibhe",
+      "date": "2026-11-10",
+      "terrain": "moderate",
+      "distanceKm": 5.16,
+      "ascentM": 254,
+      "descentM": 254,
+      "movingMin": 67,
+      "restMin": 3,
+      "stopMin": 40,
+      "sums": {
+        "xtx": [
+          1.3668,
+          0.6612,
+          0.6801,
+          1.3934,
+          0.005,
+          1.4891
+        ],
+        "xty": [
+          17.4869,
+          15.2032,
+          8.3954
+        ],
+        "n": 20
+      },
+      "fit": {
+        "flat": 8.7,
+        "up": 6.78,
+        "down": 1.64,
+        "rest": 0.045
+      }
+    },
+    {
+      "id": "w3klizk",
+      "name": "Carn Glas-choire",
+      "date": "2026-11-05",
+      "terrain": "easy",
+      "distanceKm": 13.55,
+      "ascentM": 423,
+      "descentM": 420,
+      "movingMin": 173,
+      "restMin": 12,
+      "stopMin": 45,
+      "sums": {
+        "xtx": [
+          3.6819,
+          1.1375,
+          1.1447,
+          1.0284,
+          0.0324,
+          1.0535
+        ],
+        "xty": [
+          47.0709,
+          16.4439,
+          15.1396
+        ],
+        "n": 50
+      },
+      "fit": {
+        "flat": 10.74,
+        "up": 4.03,
+        "down": 2.58,
+        "rest": 0.069
+      }
+    },
+    {
+      "id": "wmzw3c2",
+      "name": "Creag Liath",
+      "date": "2026-09-23",
+      "terrain": "moderate",
+      "distanceKm": 8.53,
+      "ascentM": 475,
+      "descentM": 475,
+      "movingMin": 108,
+      "restMin": 33,
+      "stopMin": 47,
+      "sums": {
+        "xtx": [
+          2.3768,
+          1.2502,
+          1.3397,
+          2.7704,
+          0.1574,
+          2.8424
+        ],
+        "xty": [
+          29.4463,
+          27.6864,
+          19.2983
+        ],
+        "n": 31
+      },
+      "fit": {
+        "flat": 7.24,
+        "up": 6.55,
+        "down": 3.01,
+        "rest": 0.306
+      }
+    }
+  ]
+}
