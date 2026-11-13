@@ -226,6 +226,11 @@ export function deleteTrip(s, id) {
   });
 }
 
+/** Write one text file (e.g. data/pace.json) as one commit. */
+export function saveFile(s, path, text, message) {
+  return withRetry(s, (snap) => commit(s, snap, [{ path, text }], [], message));
+}
+
 export async function getTrip(s, id) {
   const text = await readFile(s, `${TRIPS}/${id}/trip.json`);
   if (text == null) throw new Error(`${id}: not found`);

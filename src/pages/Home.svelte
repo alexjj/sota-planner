@@ -101,6 +101,7 @@
     }
   }
 
+  let gone = false;
   onMount(() => {
     let view;
     try { view = JSON.parse(sessionStorage.getItem(VIEW_KEY)); } catch {}
@@ -115,6 +116,7 @@
     (async () => {
       try {
         [summitsData, hillsData, trips] = await Promise.all([getSummits(), getHills(), getIndex()]);
+        if (gone) return; // left the page while loading
       } catch (e) {
         error = e.message;
         loading = false;
@@ -198,7 +200,7 @@
       });
     })();
 
-    return () => map.remove();
+    return () => { gone = true; map.remove(); };
   });
 
   function zoomTo(r) {

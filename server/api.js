@@ -7,6 +7,7 @@
 //   PUT    /api/trips/:id       -> save a trip
 //   DELETE /api/trips/:id       -> delete a trip and its files
 //   POST   /api/publish         -> git pull, commit data/, push
+//   PUT    /api/pace            -> save walking pace records to data/pace.json
 //
 // Save/create body: { trip, gpx, newPhotos }
 //   gpx:       { [routeId]: string | null }. A string replaces that route's
@@ -20,6 +21,7 @@ import { promisify } from 'node:util';
 import path from 'node:path';
 import { parseGpx, simplify } from '../src/lib/gpx.js';
 import { normalizeTrip } from '../src/lib/trip.js';
+import { cleanPace } from '../src/lib/pace.js';
 import { TRIP_ID_RE, planTripSave, indexEntry, sortIndex, indexText, uniqueTripId } from '../src/lib/save.js';
 
 const run = promisify(execFile);
@@ -169,6 +171,11 @@ export async function apiMiddleware(req, res, next) {
     }
     if (parts[0] === 'publish' && method === 'POST') {
       return send(res, 200, { log: await publish() });
+    }
+    if (parts[0] === 'pace' && method === 'PUT') {
+      const pace = cleanPace(await readBody(req));
+      await writeFile(path.join(dataDir, 'pace.json'), JSON.stringify(pace, null, 2) + '\n');
+      return send(res, 200, pace);
     }
     if (parts[0] === 'trips' && parts.length === 1 && method === 'POST') {
       const body = await readBody(req);

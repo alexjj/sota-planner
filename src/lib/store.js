@@ -1,5 +1,6 @@
 import { normalizeTrip } from './trip.js';
 import * as github from './github.js';
+import { cleanPace } from './pace.js';
 
 // Loading and saving data. There are three modes:
 //   local  - `npm run edit` / `npm run serve`: the edit API reads and writes data/ on disk
@@ -93,6 +94,26 @@ export async function getGpxText(tripId, file) {
   const res = await fetch(gpxUrl(tripId, file), { cache: 'no-store' });
   if (!res.ok) throw new Error(`GPX: ${res.status}`);
   return res.text();
+}
+
+/** Walking pace records (data/pace.json): { walks: [...] }. Empty if there isn't one yet. */
+export async function getPace() {
+  await getStatus();
+  if (mode === 'github') {
+    const text = await github.readFile(gh, 'data/pace.json');
+    return text ? JSON.parse(text) : { walks: [] };
+  }
+  return loadJson('data/pace.json').catch(() => ({ walks: [] }));
+}
+
+export async function savePace(pace) {
+  await getStatus();
+  if (mode === 'github') {
+    const clean = cleanPace(pace);
+    await github.saveFile(gh, 'data/pace.json', JSON.stringify(clean, null, 2) + '\n', 'Update walking pace');
+    return clean;
+  }
+  return api('PUT', 'api/pace', pace);
 }
 
 async function api(method, url, body) {

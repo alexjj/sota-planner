@@ -1,7 +1,7 @@
 // GPX parsing and route statistics. Plain string parsing so the same code runs
 // in the browser (editor preview) and in Node (edit server, building the index).
 
-/** @typedef {{lat:number, lon:number, ele:number|null}} Point */
+/** @typedef {{lat:number, lon:number, ele:number|null, time?:number}} Point  (time: ms since 1970, recorded tracks only) */
 
 /**
  * Extract track points from a GPX document. Track segments, routes and
@@ -19,11 +19,21 @@ export function parseGpx(text) {
       const lat = attr(m[2], 'lat'), lon = attr(m[2], 'lon');
       if (lat == null || lon == null) continue;
       const eleMatch = m[4] && /<ele>\s*([-\d.eE+]+)\s*<\/ele>/.exec(m[4]);
-      pts.push({ lat, lon, ele: eleMatch ? Number(eleMatch[1]) : null });
+      const timeMatch = m[4] && /<time>\s*([^<\s]+)\s*<\/time>/.exec(m[4]);
+      const pt = { lat, lon, ele: eleMatch ? Number(eleMatch[1]) : null };
+      const time = timeMatch ? Date.parse(timeMatch[1]) : NaN;
+      if (!Number.isNaN(time)) pt.time = time;
+      pts.push(pt);
     }
     if (pts.length > 1) lines.push(pts);
   }
   return lines;
+}
+
+/** The GPX's track or file name, if it has one. */
+export function gpxName(text) {
+  const m = /<(?:trk|rte|metadata)\b[^>]*>\s*<name>([\s\S]*?)<\/name>/.exec(text);
+  return m ? m[1].replace(/<!\[CDATA\[([\s\S]*?)\]\]>/, '$1').trim() : '';
 }
 
 function attr(attrs, name) {

@@ -4,8 +4,13 @@
   import { createMap, summitMarker, hillMarker, parkingMarker, trackLayer, esc, summitLinks, hillLinks, sizeSummitsOnZoom } from '../lib/map.js';
   import {
     getSummits, getHills, getTrip, getIndex, getGpxText, photoUrl, parseLatLon, googleMapsPlaceUrl,
-    createTrip, saveTrip, deleteTrip, getStatus,
+    createTrip, saveTrip, deleteTrip, getStatus, getPace,
   } from '../lib/store.js';
+  import { paceFor, statsMinutes, round5, TERRAINS, DEFAULT_TERRAIN } from '../lib/pace.js';
+  import { walkStages } from '../lib/plan.js';
+  import { fmtDuration } from '../lib/time.js';
+  import { driveTime } from '../lib/routing.js';
+  import { loadHome } from '../lib/home.js';
   import { showFlash } from '../lib/flash.svelte.js';
   import { parseGpx, gpxStats, distanceM } from '../lib/gpx.js';
   import { resizeImage, photoFileName } from '../lib/image.js';
@@ -29,6 +34,8 @@
   let activeId = $state(null);     // route that map clicks apply to
   let error = $state('');
   let notice = $state('');
+  let pace = $state.raw({ walks: [] }); // walking pace records (data/pace.json)
+  let planning = $state(false);
   let saving = $state(false);
   let pickParking = $state(false);
   let dirty = $state(false);
@@ -106,11 +113,119 @@
     if (activeId === r.id) activeId = trip.routes[0]?.id ?? null;
   }
 
-  /** Rough drive time between two parking spots: straight line x1.4 for roads, at 50 km/h. */
-  function guessDriveMinutes(a, b) {
-    if (!a || !b) return 30;
-    const km = (distanceM(a, b) / 1000) * 1.4;
-    return Math.max(5, Math.round((km * 60) / 50 / 5) * 5);
+  /** When a trip gets a second route, link the first route's stages (not yet linked to any route) to it. */
+  function linkFirstRoute(first) {
+    if (!first || trip.timetable.stages.some((st) => st.route)) return;
+    const own = routeStages({ ...trip, routes: [first] }, first.id);
+    for (const st of [own.drive, ...own.stages]) {
+      if (st && st.type !== 'activate') st.route = first.id;
+    }
+  }
+
+  /** Does the timetable already have stages for this route? */
+  function hasStages(r) {
+    const stages = trip.timetable.stages;
+    if (trip.routes.length === 1) return stages.some((st) => st.type !== 'drive');
+    return stages.some((st) => stageRouteId(st, trip) === r.id);
+  }
+
+  /** This route's walk stages, in order. */
+  function routeWalks(r) {
+    return trip.timetable.stages.filter((st) => st.type === 'walk' &&
+      (trip.routes.length === 1 ? !st.route || st.route === r.id : stageRouteId(st, trip) === r.id));
+  }
+
+  /** Estimated walking time for a route from its GPX stats and your pace. */
+  function estimateFor(r) {
+    const st = statsFor(r);
+    if (!st) return null;
+    const p = paceFor(pace, r.terrain);
+    return { minutes: round5(statsMinutes(st, p.params)), basis: p.basis };
+  }
+
+  const driveNote = (d, what) => d.how === 'guess' ? `${what} is a rough guess (couldn't reach the road router)` : null;
+
+  /**
+   * Fill in the timetable for a route from its GPX: drive there, walk in,
+   * activate each summit, walk out, then drive home. Stages already in the
+   * timetable stay as they are; a new route goes before the drive home, and
+   * the drive home is re-worked from the new last parking spot.
+   * @returns {string|null} a note for the user, or null if the route already had stages
+   */
+  async function planRoute(r) {
+    if (hasStages(r)) return null;
+    const tt = trip.timetable;
+    const notes = [];
+    // Summits the track goes over, if none were picked.
+    if (!r.summits.length) {
+      const found = (suggestions[r.id] ?? []).filter((sg) => sg.kind === 'summit').map((sg) => sg.item.ref);
+      if (found.length) {
+        r.summits.push(...found);
+        notes.push(`Added ${found.join(', ')} from the track`);
+      }
+    }
+    const others = trip.routes.filter((x) => x !== r);
+    linkFirstRoute(others[0]);
+    const p = paceFor(pace, r.terrain);
+    const { stages, offTrack } = walkStages(r, lines[r.id], p.params, summitsData.byRef);
+    if (offTrack.length) notes.push(`${offTrack.join(', ')} isn't on the GPX track: check where its activation goes`);
+    const home = loadHome();
+
+    if (!tt.stages.length) {
+      const [there, back] = await Promise.all([driveTime(home, r.parking), driveTime(r.parking, home)]);
+      tt.stages.push({ id: newId(), type: 'drive', label: '', minutes: there.minutes, route: r.id },
+        ...stages, { id: newId(), type: 'drive', label: 'Drive home', minutes: back.minutes });
+      notes.push(driveNote(there, 'The drive there'), driveNote(back, 'The drive home'));
+    } else {
+      // Drive on from the route whose stages are last so far.
+      const lastId = [...tt.stages].reverse().map((st) => stageRouteId(st, trip)).find((x) => x && x !== r.id);
+      const prev = trip.routes.find((x) => x.id === lastId) ?? others.at(-1);
+      const there = await driveTime(prev?.parking, r.parking, 30);
+      notes.push(driveNote(there, 'The drive between them'));
+      const last = tt.stages.at(-1);
+      const homeDrive = last && last.type === 'drive' && !last.route ? last : null;
+      tt.stages.splice(homeDrive ? tt.stages.length - 1 : tt.stages.length, 0,
+        { id: newId(), type: 'drive', label: '', minutes: there.minutes, route: r.id }, ...stages);
+      if (homeDrive && home && r.parking) {
+        const back = await driveTime(r.parking, home);
+        homeDrive.minutes = back.minutes;
+        notes.push('the drive home now starts from here', driveNote(back, 'The drive home'));
+      }
+    }
+    if (!home) notes.push('set your home in Settings to work out drives to and from home (left at 1 hour)');
+    const kept = notes.filter(Boolean);
+    return `Timetable filled in using ${p.basis}${p.count ? ` (${p.count})` : ''}.` +
+      (kept.length ? ` ${kept.map((n) => n[0].toUpperCase() + n.slice(1)).join('. ')}.` : '');
+  }
+
+  /** Update this route's walk times from its GPX and your pace, keeping everything else. */
+  async function reestimate(r) {
+    const p = paceFor(pace, r.terrain);
+    const fresh = walkStages(r, lines[r.id], p.params, summitsData.byRef).stages.filter((st) => st.type === 'walk');
+    const mine = routeWalks(r);
+    if (!mine.length) {
+      notice = (await planRoute(r)) ?? 'Nothing to update.';
+    } else if (mine.length !== fresh.length) {
+      notice = `This route has ${mine.length} walk stage(s) but the GPX splits into ${fresh.length} (${fresh.map((f) => `${f.label} ${fmtDuration(f.minutes)}`).join(', ')}). Times weren't changed: adjust them by hand.`;
+    } else {
+      mine.forEach((st, i) => (st.minutes = fresh[i].minutes));
+      notice = `Walk times updated using ${p.basis}: ${fresh.map((f) => `${f.label} ${fmtDuration(f.minutes)}`).join(', ')}.`;
+    }
+  }
+
+  /** "Fill in a typical day": plan every route in order. */
+  async function planAll() {
+    planning = true;
+    try {
+      const out = [];
+      for (const r of trip.routes) {
+        const n = await planRoute(r);
+        if (n) out.push(n);
+      }
+      notice = out.join(' ');
+    } finally {
+      planning = false;
+    }
   }
 
   /**
@@ -131,10 +246,7 @@
         trip.routes = [];
       } else if (trip.routes.length === 1) {
         // Going from one route to two: link this trip's own stages to its first route.
-        const own = routeStages(trip, trip.routes[0].id);
-        for (const st of [own.drive, ...own.stages]) {
-          if (st && !st.route && st.type !== 'activate') st.route = trip.routes[0].id;
-        }
+        linkFirstRoute(trip.routes[0]);
       }
       const prev = trip.routes.at(-1);
       const r = addRoute({
@@ -173,13 +285,15 @@
         }
       } else if (copied.length || from.parking) {
         // Add a drive from the last route's parking, then their stages, before the drive home.
-        const minutes = guessDriveMinutes(prev?.parking, r.parking);
+        const d = await driveTime(prev?.parking, r.parking, 30);
+        const minutes = d.minutes;
         const drive = { id: newId(), type: 'drive', label: '', minutes, route: r.id };
         const last = tt.stages.at(-1);
         const at = last && last.type === 'drive' && !last.route ? tt.stages.length - 1 : tt.stages.length;
         tt.stages.splice(at, 0, drive, ...copied);
         added += 1;
-        how = prev?.parking && r.parking ? ` The ${minutes} min drive there is a rough guess: check it with the drive-time links.` : '';
+        how = d.how === 'road' ? ` Drive there: ${fmtDuration(minutes)} by road.`
+          : d.how === 'guess' ? ` The ${minutes} min drive there is a rough guess: check it with the drive-time links.` : '';
       }
       notice = `Copied "${routeLabel(from, 0, summitsData.byRef)}" from ${src.name}` +
         (added ? `, with ${added} timetable stage${added === 1 ? '' : 's'}.${how}` : '.');
@@ -250,6 +364,13 @@
     else if (multi && !r.name) r.name = nice;
     activeId = r.id;
     fitAll();
+    planning = true;
+    try {
+      notice = (await planRoute(r)) ??
+        'GPX loaded. The timetable already has stages for this route, so they were kept: use "Re-estimate walk times" to update them.';
+    } finally {
+      planning = false;
+    }
   }
   function removeGpx(r) {
     gpxChanges[r.id] = null;
@@ -446,7 +567,9 @@
     (async () => {
       try {
         let index;
-        [summitsData, hillsData, index] = await Promise.all([getSummits(), getHills(), getIndex()]);
+        [summitsData, hillsData, index, pace] = await Promise.all([
+          getSummits(), getHills(), getIndex(), getPace().catch(() => ({ walks: [] })),
+        ]);
         otherTrips = index.filter((t) => t.id !== id);
         const t = id ? await getTrip(id) : normalizeTrip({ routes: [blankRoute({ summits: startSummit ? [startSummit] : [] })] });
         if (!t.routes.length) t.routes.push(blankRoute());
@@ -526,6 +649,7 @@
         {#each trip.routes as r, i (r.id)}
           {@const ri = info.get(r.id)}
           {@const st = statsFor(r)}
+          {@const est = estimateFor(r)}
           <section class="card route" class:active={multi && r.id === active?.id} style="--route: {ri?.color}"
                    role="group" onfocusin={() => (activeId = r.id)} onpointerdown={() => (activeId = r.id)}>
             <div class="row route-head">
@@ -576,8 +700,18 @@
             {#if lines[r.id]?.length && st}
               <p class="tabular stat">{st.distanceKm} km · {st.ascentM} m ascent · high point {st.maxEleM ?? '?'} m</p>
             {:else}
-              <p class="muted small stat">No GPX yet. Export one from plotaroute{multi ? '' : ' and drop it here'}.</p>
+              <p class="muted small stat">No GPX yet. Export one from plotaroute{multi ? '' : ' and drop it here'}: the timetable fills itself in.</p>
             {/if}
+            <div class="row small terrain">
+              <label for="terrain-{r.id}" class="inline">Terrain</label>
+              <select id="terrain-{r.id}" value={r.terrain ?? DEFAULT_TERRAIN} onchange={(e) => (r.terrain = e.currentTarget.value)}>
+                {#each Object.entries(TERRAINS) as [key, label]}<option value={key}>{label}</option>{/each}
+              </select>
+              {#if est}<span>Walking about <strong>{fmtDuration(est.minutes)}</strong> <span class="muted">({est.basis})</span></span>{/if}
+              {#if lines[r.id]?.length}
+                <button class="small" onclick={() => reestimate(r)} title="Work out this route's walk stages again from the GPX and your pace">Re-estimate walk times</button>
+              {/if}
+            </div>
             <div class="row">
               <label class="button file small">
                 {lines[r.id]?.length ? 'Replace GPX…' : 'Choose GPX…'}
@@ -625,7 +759,8 @@
 
         <section class="card">
           <h2>Timetable</h2>
-          <TimetableEditor timetable={trip.timetable} {trip} routes={info} summitsByRef={summitsData.byRef} {statsFor} />
+          <TimetableEditor timetable={trip.timetable} {trip} routes={info} summitsByRef={summitsData.byRef} {statsFor}
+                           {estimateFor} onfill={planAll} {planning} />
           {#if trip.timetable.stages.length}
             <details>
               <summary class="small">Preview</summary>
@@ -724,6 +859,8 @@
   .active-note { margin: 0; }
   .stat { margin: 0; }
   .park-label { margin-top: 0.2rem; }
+  .terrain { margin: 0.3rem 0 0.5rem; }
+  label.inline { display: inline; margin: 0; }
   .chip-link { font-size: 0.75em; margin-left: 0.15em; text-decoration: none; }
   .chip-link:hover { text-decoration: underline; }
   :global(.leaflet-popup-content .popup-action) { margin-top: 0.4em; }

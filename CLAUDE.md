@@ -36,6 +36,16 @@ delete. Change save behaviour there, not in one backend only.
 - `normalizeTrip` upgrades the old single-route format; `server/api.js` migrates `data/routes/` on start.
   Keep stored-data changes backwards compatible: real trips already live on GitHub.
 - Route colours and numbers (P1, P2…) come from route order via `routeInfo`.
+- A route may have `terrain` (easy/moderate/rough) for walk estimates.
+
+## Walking pace and planning
+
+- `src/lib/pace.js`: learns pace from recorded GPX (timestamps) and predicts walk times;
+  `data/pace.json` holds per-walk fitted numbers only (no tracks), saved via `PUT /api/pace` or
+  `github.saveFile`. `cleanPace` validates it for both.
+- `src/lib/plan.js`: GPX → walk/activate stages. `TripEdit.planRoute` adds drives and inserts them.
+- `src/lib/routing.js`: OSRM drive times (browser), padded by a local setting; falls back to a guess.
+- Home location and drive padding live in localStorage only (`src/lib/home.js`). Never commit them.
 
 ## Working with this repo
 

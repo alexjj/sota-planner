@@ -3,20 +3,15 @@
   // changed in place. With more than one route, each stage can be linked to
   // a route; activation stages follow the route that holds their summit.
   import { STAGE_TYPES, typeInfo, parseDuration, durationInput, fmtDuration } from '../lib/time.js';
-  import { naismithMinutes } from '../lib/gpx.js';
   import { googleMapsUrl } from '../lib/store.js';
   import { newId, stageRouteId } from '../lib/trip.js';
 
-  // routes: Map from routeInfo(); statsFor(route) gives current GPX stats.
-  let { timetable, trip, routes, summitsByRef, statsFor = (r) => r.stats } = $props();
+  // routes: Map from routeInfo(); statsFor(route) gives current GPX stats;
+  // estimateFor(route) gives { minutes, basis } from your walking pace;
+  // onfill() fills in an empty timetable from the routes.
+  let { timetable, trip, routes, summitsByRef, statsFor = (r) => r.stats, estimateFor = () => null, onfill, planning = false } = $props();
 
-  let pace = $state(1);
   const multi = $derived(trip.routes.length > 1);
-
-  const naismith = (r) => {
-    const st = statsFor(r);
-    return st ? naismithMinutes(st.distanceKm, st.ascentM, pace) : null;
-  };
   const summitName = (ref) => summitsByRef?.get(ref)?.name ?? ref;
 
   // Drive-time links: to the first parking, then between parkings.
@@ -70,26 +65,6 @@
     else stage.until = '06:00';
   }
 
-  /** Drive, then for each route: walk in, activate each summit, walk out, drive on. */
-  function typicalDay() {
-    const s = [];
-    trip.routes.forEach((r) => {
-      const n = routes.get(r.id).number;
-      s.push({ id: newId(), type: 'drive', label: '', minutes: 60, route: r.id });
-      const total = naismith(r);
-      const out = total ? Math.round(total * 0.45) : 90;
-      const walkIn = total ? total - out : 120;
-      s.push({ id: newId(), type: 'walk', label: multi ? `Walk in (route ${n})` : 'Walk in', minutes: walkIn, route: r.id });
-      r.summits.forEach((ref, k) => {
-        if (k > 0) s.push({ id: newId(), type: 'walk', label: `Walk to ${summitName(ref)}`, minutes: 60, route: r.id });
-        s.push({ id: newId(), type: 'activate', label: '', minutes: 40, summit: ref });
-      });
-      s.push({ id: newId(), type: 'walk', label: multi ? `Walk out (route ${n})` : 'Walk out', minutes: out, route: r.id });
-    });
-    s.push({ id: newId(), type: 'drive', label: 'Drive home', minutes: 60 });
-    if (!multi) for (const st of s) delete st.route;
-    timetable.stages = s;
-  }
 </script>
 
 <div class="row start">
@@ -97,7 +72,8 @@
   <input id="tte-start" type="time" bind:value={timetable.start} />
   <span class="spacer"></span>
   {#if !timetable.stages.length}
-    <button class="small" onclick={typicalDay}>Fill in a typical day</button>
+    <button class="small" onclick={onfill} disabled={planning}
+            title="Drive there, walk in, activate, walk out and drive home, for each route">{planning ? 'Working it out…' : 'Fill in a typical day'}</button>
   {/if}
 </div>
 
@@ -106,17 +82,15 @@
     {@const st = statsFor(r)}
     {#if st}
       {@const ri = routes.get(r.id)}
+      {@const est = estimateFor(r)}
       <span class="row hint">
         {#if multi}<span class="route-badge" style="background:{ri.color}">{ri.number}</span>{/if}
-        GPX {st.distanceKm} km, {st.ascentM} m up · Naismith <strong>{fmtDuration(naismith(r))}</strong>
+        GPX {st.distanceKm} km, {st.ascentM} m up{#if est} · walking about <strong>{fmtDuration(est.minutes)}</strong> <span class="muted">({est.basis})</span>{/if}
       </span>
     {/if}
   {/each}
   {#if trip.routes.some((r) => statsFor(r))}
-    <span>
-      Pace <input class="pace" type="number" min="0.5" max="2" step="0.05" bind:value={pace} title="1 = Naismith, 0.8 = 20% faster" />
-      <span class="muted">(1 = Naismith, 0.8 = 20% faster)</span>
-    </span>
+    <span class="muted">Walking pace and home location: <a href="#/settings">Settings</a></span>
   {/if}
   {#if driveLinks.length}
     <span class="row">Drive times in Google Maps:
@@ -188,7 +162,6 @@
   .spacer { flex: 1; }
   .hints { display: flex; flex-direction: column; gap: 0.3rem; margin: 0.6rem 0; color: var(--muted); }
   .hint { gap: 0.4em; }
-  .pace { width: 4.5em; padding: 0.05em 0.3em; }
   .stages { display: flex; flex-direction: column; gap: 0.35rem; margin: 0.6rem 0; }
   .stage {
     display: flex; gap: 0.35rem; align-items: center; flex-wrap: wrap;

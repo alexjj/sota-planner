@@ -44,6 +44,7 @@ the trip's timetable.
 data/
   summits.json              GM summits from the SOTA summits list
   hills.json                Scottish Munros, Munro Tops, Corbetts, Grahams (DoBIH)
+  pace.json                 your walking pace, learnt from walks you've recorded (Settings)
   trips/
     index.json              summary of all trips, rebuilt on every save
     <trip-id>/
@@ -107,6 +108,8 @@ are converted to this layout automatically when the edit server starts.
 ## Editing tips
 
 - **More than one route:** use **+ Add another route** when you'll drive to more hills the same day. Each route gets a number and colour. These match its line on the map, its parking marker (P1, P2…), and its stages in the timetable.
+- **Drop in a GPX and the timetable fills itself in:** drive from home to the parking, walk in, activate (40 min) each summit on the track, walk out, and drive home. Walk times use your walking pace, and drives are routed by road. Add another route and drop its GPX, and it goes before the drive home, with a drive from the previous parking. Stages you already have are kept. If the route has no summits yet, the SOTA summits on the track are added.
+- **Terrain:** each route has an easy / moderate / rough setting, which picks which of your walks its times are based on. After changing it (or the GPX), **Re-estimate walk times** updates that route's walk stages.
 - **Copy a route from another trip:** this brings over the route's GPX, parking, summits and its non-driving timetable stages, plus a drive to it. Use it to try combining walks you've already planned into one day.
 - **Summits:**
   - Search by ref (`SS-003`) or name in a route's box.
@@ -115,7 +118,7 @@ are converted to this layout automatically when the edit server starts.
 - **Parking:** paste `lat, lon` or a Google Maps link, pick a spot on the map, drag the P marker, or use the GPX start. If parking is empty when you load a GPX, the GPX start is used.
 - **Timetable:**
   - Type durations as `90`, `1:30` or `1h30`.
-  - **Fill in a typical day** builds a drive, walk in, activations and walk out for each route, using a Naismith estimate from each GPX.
+  - **Fill in a typical day** (on an empty timetable) does the same as dropping in each route's GPX.
   - With several routes, each stage has a route picker.
   - The 🕕 button switches a stage to "until a clock time".
 - **Photos**: choose files, drag them onto the page, or paste a screenshot with Ctrl+V.
@@ -225,15 +228,27 @@ import stops without overwriting anything. That makes the monthly run show as
 failed, and GitHub emails you. Both lists change rarely, so a big drop almost
 certainly means a broken download.
 
+## Settings: home and walking pace
+
+Open **Settings** at the top right.
+
+- **Home:** where trips start and end, for drive times. Paste `lat, lon` or a Google Maps link, or use your current location. It's kept only in that browser's local storage, like the GitHub token, and is never committed. Drive times come from the free [OSRM](https://project-osrm.org) router, so your home and parking coordinates are sent there. If it can't be reached, the planner makes a rough guess from the straight-line distance. Routed times get a percentage added (15% by default), because the router tends to be quick on Highland roads.
+- **Walking pace:** add GPX recordings of walks you've done, from a watch, phone or GPS (they need timestamps). For each walk the planner fits:
+  - minutes per km on the flat,
+  - extra minutes per 100 m up and per 100 m down,
+  - short rests along the way, as a percentage. Stops of 20 minutes or more, like activations and lunch, are left out.
+
+  Mark each walk as easy, moderate or rough terrain. A route uses the walks with its terrain, else all your walks, else Naismith's rule. Only these numbers go into `data/pace.json` (not the tracks), so every browser and the public site use the same pace. Saving works in local and GitHub mode, like a trip.
+
 ## Credits
 
 - Summits: [SOTA](https://www.sota.org.uk/) summits list.
 - Hills: [Database of British and Irish Hills](https://www.hills-database.co.uk/) v18, CC BY 4.0.
 - Maps: [OpenTopoMap](https://opentopomap.org/) (CC-BY-SA), © OpenStreetMap contributors, Esri World Imagery.
+- Drive times: [OSRM](https://project-osrm.org) demo server, © OpenStreetMap contributors.
 
 ## Ideas for later
 
-- Driving times from OSRM or OpenRouteService instead of entering them by hand.
 - Planning routes in the app with BRouter instead of plotaroute.
 - Sunrise and sunset times on the timetable for a chosen date.
 - OS grid reference input for parking.

@@ -2,8 +2,9 @@
   import { onMount } from 'svelte';
   import L from 'leaflet';
   import { createMap, summitMarker, hillMarker, parkingMarker, trackLayer, esc, summitLinks, sizeSummitsOnZoom } from '../lib/map.js';
-  import { getSummits, getHills, getTrip, getGpxText, gpxUrl, photoUrl, googleMapsUrl } from '../lib/store.js';
-  import { parseGpx, naismithMinutes } from '../lib/gpx.js';
+  import { getSummits, getHills, getTrip, getGpxText, gpxUrl, photoUrl, googleMapsUrl, getPace } from '../lib/store.js';
+  import { paceFor, statsMinutes, round5, TERRAINS } from '../lib/pace.js';
+  import { parseGpx } from '../lib/gpx.js';
   import { fmtDuration } from '../lib/time.js';
   import { routeInfo, tripStats } from '../lib/trip.js';
   import Timetable from '../components/Timetable.svelte';
@@ -55,12 +56,20 @@
     }
   }
 
+  let pace = $state.raw({ walks: [] });
+  const walkEstimate = (r) => {
+    const p = paceFor(pace, r.terrain);
+    return { minutes: round5(statsMinutes(r.stats, p.params)), basis: p.basis, terrain: TERRAINS[r.terrain ?? 'moderate'] };
+  };
+
   onMount(() => {
     map = createMap(mapEl).map;
     sizeSummitsOnZoom(map);
     (async () => {
       try {
-        [trip, summitsData, hillsData] = await Promise.all([getTrip(id), getSummits(), getHills()]);
+        [trip, summitsData, hillsData, pace] = await Promise.all([
+          getTrip(id), getSummits(), getHills(), getPace().catch(() => ({ walks: [] })),
+        ]);
         const loaded = {};
         await Promise.all(trip.routes.filter((r) => r.gpx).map(async (r) => {
           loaded[r.id] = parseGpx(await getGpxText(id, r.gpx));
@@ -172,13 +181,14 @@
             </ul>
 
             {#if r.stats}
+              {@const est = walkEstimate(r)}
               <div class="stats">
                 <div><span class="muted small">Distance</span><strong>{r.stats.distanceKm} km</strong></div>
                 <div><span class="muted small">Ascent</span><strong>{r.stats.ascentM} m</strong></div>
                 {#if r.stats.maxEleM != null}
                   <div><span class="muted small">High point</span><strong>{r.stats.maxEleM} m</strong></div>
                 {/if}
-                <div><span class="muted small">Naismith</span><strong>{fmtDuration(naismithMinutes(r.stats.distanceKm, r.stats.ascentM))}</strong></div>
+                <div title="{est.terrain}. Based on {est.basis}."><span class="muted small">{est.basis === 'Naismith' ? 'Naismith' : 'Walking'}</span><strong>{fmtDuration(est.minutes)}</strong></div>
               </div>
               {#if lines[r.id]}<ElevationProfile lines={lines[r.id]} color={ri.color} />{/if}
               <a class="small" href={gpxUrl(id, r.gpx)} download="{id}-{i + 1}.gpx">Download GPX</a>

@@ -2,6 +2,7 @@
   import Home from './pages/Home.svelte';
   import TripView from './pages/TripView.svelte';
   import TripEdit from './pages/TripEdit.svelte';
+  import Settings from './pages/Settings.svelte';
   import GitHubSettings from './components/GitHubSettings.svelte';
   import { getStatus, publish } from './lib/store.js';
   import { flash } from './lib/flash.svelte.js';
@@ -30,6 +31,7 @@
     if (isTrip && parts[1] && parts[2] === 'edit') return { name: 'edit', id: parts[1] };
     if (isTrip && parts[1]) return { name: 'view', id: parts[1] };
     if (parts[0] === 'new') return { name: 'new', summit: query.get('summit') };
+    if (parts[0] === 'settings') return { name: 'settings' };
     return { name: 'home' };
   });
 
@@ -61,6 +63,7 @@
         </button>
       {/if}
     {/if}
+    <a class="button" href="#/settings" title="Home location and walking pace">Settings</a>
     {#if status && status.mode !== 'local'}
       <button class="gh" class:muted={!status.edit} onclick={() => (showGitHub = true)}
               title={status.edit ? `Saving to ${status.repo} (${status.branch})` : 'Edit trips by saving to GitHub'}>
@@ -94,6 +97,8 @@
         <TripEdit id={page.id} />
       {:else if page.name === 'new'}
         <TripEdit summit={page.summit} />
+      {:else if page.name === 'settings'}
+        <Settings />
       {:else}
         <Home edit={status.edit} />
       {/if}
