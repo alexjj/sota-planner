@@ -101,6 +101,108 @@
         "down": 3.01,
         "rest": 0.306
       }
+    },
+    {
+      "id": "wb7fq9q",
+      "name": "Mayar and Driesh",
+      "date": "2026-06-22",
+      "terrain": "easy",
+      "distanceKm": 15.2,
+      "ascentM": 821,
+      "descentM": 816,
+      "movingMin": 185,
+      "restMin": 23,
+      "stopMin": 46,
+      "sums": {
+        "xtx": [
+          4.1577,
+          2.1962,
+          2.2322,
+          3.779,
+          0.0736,
+          3.5463
+        ],
+        "xty": [
+          50.3265,
+          35.4972,
+          26.2784
+        ],
+        "n": 56
+      },
+      "fit": {
+        "flat": 9.09,
+        "up": 4.08,
+        "down": 1.61,
+        "rest": 0.124
+      }
+    },
+    {
+      "id": "wmj1ypu",
+      "name": "Ben Vorlich & Stuc a'Chroin",
+      "date": "2026-06-02",
+      "terrain": "moderate",
+      "distanceKm": 15.6,
+      "ascentM": 1177,
+      "descentM": 1172,
+      "movingMin": 239,
+      "restMin": 71,
+      "stopMin": 26,
+      "sums": {
+        "xtx": [
+          4.2134,
+          3.1213,
+          3.1835,
+          6.6522,
+          0.1751,
+          5.5636
+        ],
+        "xty": [
+          64.0985,
+          63.879,
+          46.9197
+        ],
+        "n": 58
+      },
+      "fit": {
+        "flat": 8.72,
+        "up": 5.42,
+        "down": 3.27,
+        "rest": 0.297
+      }
+    },
+    {
+      "id": "wa9357h",
+      "name": "Càrn Dearg, Càrn Sgulain &amp; A' Chailleach",
+      "date": "2025-11-04",
+      "terrain": "easy",
+      "distanceKm": 25.08,
+      "ascentM": 1124,
+      "descentM": 1122,
+      "movingMin": 353,
+      "restMin": 54,
+      "stopMin": 0,
+      "sums": {
+        "xtx": [
+          6.8161,
+          3.0174,
+          3.0641,
+          3.7036,
+          0.4805,
+          3.5609
+        ],
+        "xty": [
+          95.9262,
+          51.3563,
+          43.7231
+        ],
+        "n": 93
+      },
+      "fit": {
+        "flat": 11.13,
+        "up": 4.53,
+        "down": 2.09,
+        "rest": 0.153
+      }
     }
   ]
 }
