@@ -25,7 +25,7 @@
       "hills": []
     }
   ],
-  "name": "Vrackie on ES day",
+  "name": "Vrackie",
   "tags": [
     "Corbett"
   ],
@@ -71,26 +71,14 @@
         "minutes": 80
       },
       {
-        "id": "4u6pys",
-        "type": "drive",
-        "label": "Drive to cafe",
-        "minutes": 35
-      },
-      {
-        "id": "2lamo6",
-        "type": "break",
-        "label": "Lunch",
-        "minutes": 60
-      },
-      {
         "id": "7bhhix",
         "type": "drive",
         "label": "Drive home",
-        "minutes": 100
+        "minutes": 130
       }
     ]
   },
   "id": "vrackie-on-es-day",
-  "updated": "2026-11-11T21:45:00.559Z",
+  "updated": "2026-11-16T15:35:20.862Z",
   "created": "2026-11-11T21:45:00.559Z"
 }
