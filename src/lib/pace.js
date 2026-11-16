@@ -66,23 +66,122 @@ function pathKm(pts, from, to) {
 
 const round = (n, dp = 2) => Math.round(n * 10 ** dp) / 10 ** dp;
 
+/** Walking or cycling: a recording can hold both (cycle in, walk up, cycle out). */
+export const MODES = { walk: 'Walk', cycle: 'Cycle' };
+const modeOf = (w) => (w?.mode === 'cycle' ? 'cycle' : 'walk');
+
+const CYCLE_CHUNK_KM = 0.5; // cycling covers ground faster, so fit over longer chunks
+const FAST_KMH = 9;         // smoothed speed above this is cycling, not walking
+const DROP_M = 50;          // passing within this of the bike drop counts as being at it
+
 /**
- * Learn from one recorded walk.
- * @param {import('./gpx.js').Point[][]} lines parsed GPX with times
- * @returns a walk record (without name/terrain), or throws if the GPX has no times
+ * The timed points of a recording, in time order.
+ * @param {import('./gpx.js').Point[][]} lines parsed GPX
+ * @throws if the GPX has no timestamps (a planned route, not a recording)
  */
-export function learnWalk(lines) {
+export function recordingPoints(lines) {
   const pts = lines.flat().filter((p) => p.time != null).sort((a, b) => a.time - b.time);
   if (pts.length < 20) {
     throw new Error('it has no timestamps. Use the recording from your watch, phone or GPS, not a planned route.');
   }
-  const ele = cleanElevations(pts);
+  return pts;
+}
 
-  // 1. Steps of ~30 s: moving or stopped.
+/** ~30 s steps through the points: { from, to, minutes, km } (point indexes). */
+function steps(pts, from = 0, to = pts.length - 1) {
+  const out = [];
+  for (let i = from; i < to;) {
+    let j = i + 1;
+    while (j < to && (pts[j].time - pts[i].time) / 1000 < STEP_S) j++;
+    out.push({ from: i, to: j, minutes: (pts[j].time - pts[i].time) / 60000, km: distanceM(pts[i], pts[j]) / 1000 });
+    i = j;
+  }
+  return out;
+}
+
+/**
+ * Work out which parts of a recording were cycled. The usual day is: cycle in,
+ * leave the bike, walk up and back, cycle out. So the walk is the longest slow
+ * stretch, the ride out starts with the first fast step after it, and the bike
+ * drop is where that ride starts (you first reached it at the end of the ride in).
+ * @returns {{ kind: 'walk'|'cycle'|'mixed', a?: number, b?: number }} for 'mixed':
+ *   cycled up to point a, walked from a to b, cycled from b to the end
+ */
+export function detectSplit(pts) {
+  const st = steps(pts);
+  // Speed smoothed over ~2.5 minutes, so a short fast or slow moment doesn't flip it.
+  const speed = st.map((s, k) => {
+    let km = 0, min = 0;
+    for (let q = Math.max(0, k - 2); q <= Math.min(st.length - 1, k + 2); q++) { km += st[q].km; min += st[q].minutes; }
+    return min > 0 ? km / (min / 60) : 0;
+  });
+  const fast = speed.map((v, k) => v >= FAST_KMH && st[k].minutes < 30);
+  const fastMin = st.reduce((t, s, k) => t + (fast[k] ? s.minutes : 0), 0);
+  if (fastMin < 3) return { kind: 'walk' };
+
+  // Longest stretch of time with no fast steps: the walk.
+  let best = null, run = null;
+  st.forEach((s, k) => {
+    if (fast[k]) { run = null; return; }
+    run ??= { start: k, end: k, minutes: 0 };
+    run.end = k;
+    run.minutes += s.minutes;
+    if (!best || run.minutes > best.minutes) best = { ...run };
+  });
+  if (!best || best.minutes < 15) return { kind: 'cycle' };
+
+  const fastBefore = fast.slice(0, best.start).some(Boolean);
+  const afterK = fast.findIndex((f, k) => f && k > best.end);
+  const b = afterK >= 0 ? st[afterK].from : pts.length - 1;
+  let a = fastBefore ? st[best.start].from : 0;
+  if (afterK >= 0 && fastBefore) {
+    // You reached the bike drop at the end of the ride in: the first time the
+    // track gets to where the ride out starts. (Slow uphill cycling counts too.)
+    const at = pts.findIndex((p, i) => i < b && distanceM(p, pts[b]) <= DROP_M);
+    if (at > 0) a = at;
+  }
+  if (a <= 0 && b >= pts.length - 1) return { kind: 'walk' };
+  // Barely any walking between leaving and collecting the bike (e.g. a slow climb
+  // and a stop on top): it was a bike ride.
+  if (pathKm(pts, a, b) < 0.5) return { kind: 'cycle' };
+  return { kind: 'mixed', a, b };
+}
+
+/**
+ * A split from a bike drop you picked: cycled until you first reached it,
+ * walked until you last left it, cycled from there.
+ */
+export function splitAt(pts, drop) {
+  let a = -1, b = -1, nearest = 0, nearestD = Infinity;
+  pts.forEach((p, i) => {
+    const d = distanceM(p, drop);
+    if (d < nearestD) { nearestD = d; nearest = i; }
+    if (d <= DROP_M) { if (a < 0) a = i; b = i; }
+  });
+  if (a < 0) a = b = nearest;
+  if (b - a < 10) b = pts.length - 1; // only passed it once: cycled in, walked the rest
+  return { kind: 'mixed', a, b };
+}
+
+/** Point index ranges for each mode under a split. */
+export function splitRanges(pts, split) {
+  const last = pts.length - 1;
+  if (split.kind !== 'mixed') return { [split.kind]: [[0, last]] };
+  const cycle = [[0, split.a], [split.b, last]].filter(([f, t]) => t - f >= 2);
+  return { walk: [[split.a, split.b]], cycle };
+}
+
+/**
+ * Measure and fit the given point ranges of a recording as one mode.
+ * @returns a record (without name/terrain), or null if there's too little to learn from
+ */
+function learnRanges(pts, ranges, mode) {
+  const ele = cleanElevations(pts);
+  const chunkKm = mode === 'cycle' ? CYCLE_CHUNK_KM : CHUNK_KM;
   const rows = [];
-  let chunk = { d: 0, up: 0, down: 0, t: 0 };
   let stop = 0, restMin = 0, stopMin = 0, movingMin = 0;
   let distanceKm = 0, ascentM = 0, descentM = 0;
+  let chunk = { d: 0, up: 0, down: 0, t: 0 };
   const endStop = () => {
     if (stop >= LONG_STOP_MIN) stopMin += stop; else restMin += stop;
     stop = 0;
@@ -91,28 +190,26 @@ export function learnWalk(lines) {
     if (chunk.d > 0.05) rows.push(chunk);
     chunk = { d: 0, up: 0, down: 0, t: 0 };
   };
-  for (let i = 0; i < pts.length - 1;) {
-    let j = i + 1;
-    while (j < pts.length - 1 && (pts[j].time - pts[i].time) / 1000 < STEP_S) j++;
-    const t = (pts[j].time - pts[i].time) / 60000;
-    const { up, down } = upDown(ele, i, j);
-    const moved = distanceM(pts[i], pts[j]) >= MOVING_M || up + down > 0;
-    if (moved && t < 30) {
-      endStop();
-      const d = pathKm(pts, i, j);
-      chunk.d += d; chunk.up += up; chunk.down += down; chunk.t += t;
-      distanceKm += d; ascentM += up; descentM += down; movingMin += t;
-      if (chunk.d >= CHUNK_KM) endChunk();
-    } else {
-      stop += t; // also covers gaps in the recording
+  for (const [from, to] of ranges) {
+    for (const s of steps(pts, from, to)) {
+      const { up, down } = upDown(ele, s.from, s.to);
+      const moved = s.km * 1000 >= MOVING_M || up + down > 0;
+      if (moved && s.minutes < 30) {
+        endStop();
+        const d = pathKm(pts, s.from, s.to);
+        chunk.d += d; chunk.up += up; chunk.down += down; chunk.t += s.minutes;
+        distanceKm += d; ascentM += up; descentM += down; movingMin += s.minutes;
+        if (chunk.d >= chunkKm) endChunk();
+      } else {
+        stop += s.minutes; // also covers gaps in the recording
+      }
     }
-    i = j;
+    endStop();
+    endChunk(); // don't join chunks across the bike drop
   }
-  endStop();
-  endChunk();
-  if (rows.length < 4) throw new Error('there is too little walking in it to learn from.');
+  if (rows.length < 4) return null;
 
-  // 2. Least-squares sums for t = flat·d + up·(u/100) + down·(v/100).
+  // Least-squares sums for t = flat·d + up·(u/100) + down·(v/100).
   const xtx = [0, 0, 0, 0, 0, 0]; // a00 a01 a02 a11 a12 a22
   const xty = [0, 0, 0];
   for (const r of rows) {
@@ -123,7 +220,8 @@ export function learnWalk(lines) {
   }
   const sums = { xtx: xtx.map((v) => round(v, 4)), xty: xty.map((v) => round(v, 4)), n: rows.length };
   return {
-    date: new Date(pts[0].time).toISOString().slice(0, 10),
+    mode,
+    date: new Date(pts[ranges[0][0]].time).toISOString().slice(0, 10),
     distanceKm: round(distanceKm),
     ascentM: Math.round(ascentM),
     descentM: Math.round(descentM),
@@ -131,8 +229,29 @@ export function learnWalk(lines) {
     restMin: Math.round(restMin),
     stopMin: Math.round(stopMin),
     sums,
-    fit: fitSums(sums, restMin / movingMin),
+    fit: fitSums(sums, movingMin ? restMin / movingMin : 0, mode),
   };
+}
+
+/**
+ * Learn from a recording under a split: one record per mode it has enough of.
+ * @returns {object[]} walk and/or cycle records (without name/terrain)
+ */
+export function learnRecording(pts, split = detectSplit(pts)) {
+  const ranges = splitRanges(pts, split);
+  return Object.entries(ranges).map(([mode, r]) => learnRanges(pts, r, mode)).filter(Boolean);
+}
+
+/**
+ * Learn from one recorded walk (all of it walking).
+ * @param {import('./gpx.js').Point[][]} lines parsed GPX with times
+ * @returns a walk record (without name/terrain), or throws if the GPX has no times
+ */
+export function learnWalk(lines) {
+  const pts = recordingPoints(lines);
+  const rec = learnRanges(pts, [[0, pts.length - 1]], 'walk');
+  if (!rec) throw new Error('there is too little walking in it to learn from.');
+  return rec;
 }
 
 function solve3(a, b) {
@@ -151,11 +270,15 @@ function solve3(a, b) {
   return [m[0][3] / m[0][0], m[1][3] / m[1][1], m[2][3] / m[2][2]];
 }
 
-const sensible = ({ flat, up, down }) =>
-  flat >= 5 && flat <= 40 && up >= 1 && up <= 40 && down >= -5 && down <= 25;
+// What counts as a believable fit. Cycling downhill is faster than on the flat, so `down` can be negative.
+const SENSIBLE = {
+  walk: ({ flat, up, down }) => flat >= 5 && flat <= 40 && up >= 1 && up <= 40 && down >= -5 && down <= 25,
+  cycle: ({ flat, up, down }) => flat >= 1.2 && flat <= 10 && up >= 0 && up <= 30 && down >= -4 && down <= 10,
+};
 
 /** Fit flat/up/down from least-squares sums, falling back to simpler fits if the data can't support it. */
-export function fitSums(sums, rest = 0) {
+export function fitSums(sums, rest = 0, mode = 'walk') {
+  const sensible = SENSIBLE[mode] ?? SENSIBLE.walk;
   const [a00, a01, , a11] = sums.xtx;
   const out = (flat, up, down) => ({ flat: round(flat), up: round(up), down: round(down), rest: round(rest, 3) });
   const full = solve3(sums.xtx, sums.xty);
@@ -167,6 +290,10 @@ export function fitSums(sums, rest = 0) {
     const up = (a00 * sums.xty[1] - a01 * sums.xty[0]) / det;
     if (sensible({ flat, up, down: 0 })) return out(flat, up, 0);
   }
+  if (mode === 'cycle') {
+    // Just your average speed on the bike.
+    return out(a00 > 0 ? sums.xty[0] / a00 : 4, 0, 0);
+  }
   // Naismith's shape, scaled to your speed.
   const naismithX = sums.xtx[0] * 144 + 2 * a01 * 120 + a11 * 100; // x·[12,10,0] squared, summed
   const naismithY = sums.xty[0] * 12 + sums.xty[1] * 10;
@@ -175,15 +302,15 @@ export function fitSums(sums, rest = 0) {
 }
 
 /**
- * Combine several walks into one set of pace numbers: each walk's own fit,
- * averaged by walking time. (Pooling every chunk into one fit would mix fast
+ * Combine several walks (or rides) into one set of pace numbers: each one's own
+ * fit, averaged by moving time. (Pooling every chunk into one fit would mix fast
  * and slow terrain and can give odd answers.)
  */
 export function combineWalks(walks) {
   let weight = 0, moving = 0, rest = 0;
   const acc = { flat: 0, up: 0, down: 0 };
   for (const w of walks) {
-    const fit = w.fit ?? fitSums(w.sums);
+    const fit = w.fit ?? fitSums(w.sums, 0, modeOf(w));
     const k = w.movingMin || 1;
     acc.flat += fit.flat * k; acc.up += fit.up * k; acc.down += fit.down * k;
     weight += k; moving += w.movingMin; rest += w.restMin;
@@ -194,9 +321,14 @@ export function combineWalks(walks) {
   };
 }
 
-/** Walks with this company (walks saved before company was recorded count as solo). */
+/** Walks with this company (walks saved before company was recorded count as solo). Not rides. */
 export function walksWith(pace, company = DEFAULT_COMPANY) {
-  return (pace?.walks ?? []).filter((w) => companyOf(w) === company);
+  return (pace?.walks ?? []).filter((w) => modeOf(w) === 'walk' && companyOf(w) === company);
+}
+
+/** Bike rides (the cycled parts of recordings) with this company. */
+export function ridesWith(pace, company = DEFAULT_COMPANY) {
+  return (pace?.walks ?? []).filter((w) => modeOf(w) === 'cycle' && companyOf(w) === company);
 }
 
 /**
@@ -270,10 +402,12 @@ export function cleanPace(body) {
       date: /^\d{4}-\d\d-\d\d$/.test(w.date) ? w.date : null,
       terrain: TERRAINS[w.terrain] ? w.terrain : DEFAULT_TERRAIN,
       company: companyOf(w),
+      mode: modeOf(w),
+      ...(w.src ? { src: String(w.src).slice(0, 40) } : {}), // which recording it came from
       distanceKm: num(w.distanceKm), ascentM: num(w.ascentM), descentM: num(w.descentM),
       movingMin, restMin, stopMin: num(w.stopMin),
       sums,
-      fit: fitSums(sums, movingMin ? restMin / movingMin : 0),
+      fit: fitSums(sums, movingMin ? restMin / movingMin : 0, modeOf(w)),
     };
   });
   return { walks };

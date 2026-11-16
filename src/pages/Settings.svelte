@@ -5,7 +5,11 @@
   import { getPace, savePace, getStatus, parseLatLon, googleMapsPlaceUrl } from '../lib/store.js';
   import { loadHome, saveHome, clearHome, loadDrivePad, saveDrivePad, DEFAULT_DRIVE_PAD } from '../lib/home.js';
   import { parseGpx, gpxName } from '../lib/gpx.js';
-  import { learnWalk, combineWalks, walkMinutes, walksWith, TERRAINS, DEFAULT_TERRAIN, COMPANY, DEFAULT_COMPANY, NAISMITH } from '../lib/pace.js';
+  import {
+    recordingPoints, detectSplit, splitAt, learnRecording, combineWalks, walkMinutes, walksWith, ridesWith,
+    TERRAINS, DEFAULT_TERRAIN, COMPANY, DEFAULT_COMPANY, MODES, NAISMITH,
+  } from '../lib/pace.js';
+  import RideSplit from '../components/RideSplit.svelte';
   import { newId } from '../lib/trip.js';
   import { fmtDuration } from '../lib/time.js';
   import { showFlash } from '../lib/flash.svelte.js';
@@ -59,6 +63,8 @@
   let saving = $state(false);
   let messages = $state([]);
   let dragging = $state(false);
+  // Recordings with cycling in them, waiting for you to check the split: { id, name, date, src, pts, split }
+  let pending = $state.raw([]);
 
   onMount(async () => {
     status = await getStatus();
@@ -77,18 +83,54 @@
       if (!/\.gpx$/i.test(f.name)) continue;
       try {
         const text = await f.text();
-        const rec = learnWalk(parseGpx(text));
-        const dupe = pace.walks.find((w) => w.date === rec.date && Math.abs(w.distanceKm - rec.distanceKm) < 0.05);
-        if (dupe) { out.push(`${f.name}: already added as "${dupe.name}".`); continue; }
-        pace.walks.push({ id: newId('w'), name: gpxName(text) || f.name.replace(/\.gpx$/i, ''), terrain: DEFAULT_TERRAIN, company: DEFAULT_COMPANY, ...rec });
-        dirty = true;
-        out.push(`${f.name}: added. Set its terrain and who you walked with below.`);
+        const pts = recordingPoints(parseGpx(text));
+        const name = gpxName(text) || f.name.replace(/\.gpx$/i, '');
+        const date = new Date(pts[0].time).toISOString().slice(0, 10);
+        // Identifies the recording, so adding it again (even split differently) is caught.
+        const src = `${date} ${pts.length}`;
+        const split = detectSplit(pts);
+        const recs = learnRecording(pts, { kind: 'walk' });
+        const dupe = pace.walks.find((w) => w.src === src ||
+          (!w.src && recs[0] && w.date === recs[0].date && Math.abs(w.distanceKm - recs[0].distanceKm) < 0.05));
+        if (dupe || pending.some((x) => x.src === src)) {
+          out.push(`${f.name}: already added${dupe ? ` as "${dupe.name}"` : ' (check it below)'}.`);
+          continue;
+        }
+        if (split.kind === 'walk') {
+          if (!recs.length) throw new Error('there is too little walking in it to learn from.');
+          addRecords(name, src, recs);
+          out.push(`${f.name}: added. Set its terrain and who you walked with below.`);
+        } else {
+          pending = [...pending, { id: newId('p'), name, date, src, pts, split }];
+          out.push(`${f.name}: ${split.kind === 'cycle' ? 'looks like all cycling' : 'has cycling in it'}. Check the split below, then add it.`);
+        }
       } catch (e) {
         out.push(`${f.name}: can't learn from this file because ${e.message}`);
       }
     }
-    pace.walks.sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
     messages = out;
+  }
+
+  /** Add the walk and/or cycle records learnt from one recording. */
+  function addRecords(name, src, recs) {
+    for (const rec of recs) {
+      const label = recs.length > 1 ? `${name} (${rec.mode === 'cycle' ? 'cycle' : 'walk'})` : name;
+      pace.walks.push({ id: newId('w'), name: label, terrain: DEFAULT_TERRAIN, company: DEFAULT_COMPANY, src, ...rec });
+    }
+    pace.walks.sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '') || (a.mode === 'cycle') - (b.mode === 'cycle'));
+    dirty = true;
+  }
+
+  function setSplit(item, split) {
+    pending = pending.map((x) => (x === item ? { ...x, split } : x));
+  }
+
+  function addPending(item) {
+    const recs = learnRecording(item.pts, item.split);
+    if (!recs.length) { messages = [`${item.name}: there is too little in it to learn from.`]; return; }
+    addRecords(item.name, item.src, recs);
+    pending = pending.filter((x) => x !== item);
+    messages = [`${item.name}: added ${recs.map((r) => (r.mode === 'cycle' ? 'the cycling' : 'the walking')).join(' and ')}.`];
   }
 
   function onDrop(e) {
@@ -130,6 +172,13 @@
     rows.push({ key: 'naismith', label: "Naismith's rule", count: null, params: NAISMITH });
     return rows;
   });
+
+  // Cycling: the cycled parts of recordings, kept apart from walking.
+  const rideSummary = $derived(Object.entries(COMPANY).map(([key, label]) => {
+    const rides = ridesWith(pace, key);
+    return { key, label: key === DEFAULT_COMPANY ? 'Solo' : label, count: rides.length, params: rides.length ? combineWalks(rides) : null };
+  }));
+  const rideExample = { distanceKm: 10, upM: 300, downM: 300 };
 
   const example = { distanceKm: 10, upM: 800, downM: 800 };
   const kmh = (flat) => (60 / flat).toFixed(1);
@@ -181,6 +230,11 @@
       pace. Only these numbers are saved
       to GitHub (<code>data/pace.json</code>), not the tracks.
     </p>
+    <p class="muted small">
+      Cycled in? Recordings with cycling in them are split at the bike drop (found from your speed and
+      where you stopped), and the cycling is learnt separately, below. Check the split on the map before
+      adding it.
+    </p>
 
     {#if loaded}
       <table class="summary tabular">
@@ -207,6 +261,33 @@
         </tbody>
       </table>
 
+      {#if rideSummary.some((r) => r.count)}
+        <h3>Cycling pace</h3>
+        <table class="summary tabular">
+          <thead>
+            <tr><th></th><th>Rides</th><th>Flat</th><th>Per 100 m up</th><th>Per 100 m down</th><th>Rests</th>
+              <th title="10 km with 300 m up and 300 m down">10 km, 300 m up</th></tr>
+          </thead>
+          <tbody>
+            {#each rideSummary as r (r.key)}
+              <tr>
+                <th>{r.label}</th>
+                <td>{r.count}</td>
+                {#if r.params}
+                  <td>{r.params.flat.toFixed(1)} min/km <span class="muted">({kmh(r.params.flat)} km/h)</span></td>
+                  <td>+{r.params.up.toFixed(1)} min</td>
+                  <td>{r.params.down >= 0 ? '+' : ''}{r.params.down.toFixed(1)} min</td>
+                  <td>{pct(r.params.rest)}</td>
+                  <td><strong>{fmtDuration(walkMinutes(rideExample, r.params))}</strong></td>
+                {:else}
+                  <td colspan="5" class="muted">No rides yet</td>
+                {/if}
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      {/if}
+
       {#if status?.edit}
         <div class="row add">
           <label class="button">
@@ -223,10 +304,35 @@
       {/if}
       {#each messages as m}<p class="small msg">{m}</p>{/each}
 
+      {#each pending as item (item.id)}
+        {@const recs = learnRecording(item.pts, item.split)}
+        <div class="pending">
+          <div class="row">
+            <strong>{item.name}</strong><span class="muted small">{item.date}</span>
+            <span class="spacer"></span>
+            <button class="small" onclick={() => setSplit(item, detectSplit(item.pts))} title="Go back to the split found automatically">Auto split</button>
+            <button class="small" onclick={() => setSplit(item, { kind: 'walk' })}>All walking</button>
+            <button class="small" onclick={() => setSplit(item, { kind: 'cycle' })}>All cycling</button>
+          </div>
+          <RideSplit pts={item.pts} split={item.split} onpick={(p) => setSplit(item, splitAt(item.pts, p))} />
+          <p class="small">
+            {#each recs as r}
+              <span class="part"><b>{MODES[r.mode]}:</b> {r.distanceKm.toFixed(1)} km, {r.ascentM} m up, {fmtDuration(r.movingMin)} moving
+                ({(r.distanceKm / (r.movingMin / 60)).toFixed(1)} km/h)</span>
+            {:else}<span class="muted">Too little in it to learn from.</span>{/each}
+          </p>
+          <div class="row">
+            <button class="primary" onclick={() => addPending(item)} disabled={!recs.length}>
+              Add {recs.map((r) => (r.mode === 'cycle' ? 'cycling' : 'walking')).join(' and ')}</button>
+            <button class="danger" onclick={() => (pending = pending.filter((x) => x !== item))}>Discard</button>
+          </div>
+        </div>
+      {/each}
+
       {#if pace.walks.length}
         <table class="walks tabular">
           <thead>
-            <tr><th>Walk</th><th>Date</th><th>Terrain</th><th>With</th><th>Distance</th><th>Up</th><th>Moving</th><th>Rests</th>
+            <tr><th>Walk</th><th>Date</th><th>Mode</th><th>Terrain</th><th>With</th><th>Distance</th><th>Up</th><th>Moving</th><th>Rests</th>
               <th title="Minutes per km on the flat / per 100 m up / per 100 m down">Fit (flat / up / down)</th><th></th></tr>
           </thead>
           <tbody>
@@ -237,8 +343,10 @@
                   {:else}{w.name}{/if}
                 </td>
                 <td>{w.date ?? ''}</td>
+                <td>{MODES[w.mode] ?? MODES.walk}</td>
                 <td>
-                  {#if status?.edit}
+                  {#if w.mode === 'cycle'}<span class="muted">–</span>
+                  {:else if status?.edit}
                     <select bind:value={w.terrain} onchange={() => (dirty = true)} aria-label="Terrain">
                       {#each Object.entries(TERRAINS) as [key, label]}<option value={key}>{label}</option>{/each}
                     </select>
@@ -285,5 +393,9 @@
   .add { margin: 0.4rem 0; }
   label.button { display: inline-flex; color: var(--text); font-size: inherit; margin: 0; cursor: pointer; }
   .msg { margin: 0.2rem 0; }
+  h3 { margin: 0.8rem 0 0; font-size: 0.95rem; }
+  .pending { border: 1px solid var(--line); border-radius: var(--radius); padding: 0.6rem; margin: 0.6rem 0; display: flex; flex-direction: column; gap: 0.4rem; }
+  .pending p { margin: 0; }
+  .part { margin-right: 1rem; }
   section { overflow-x: auto; }
 </style>

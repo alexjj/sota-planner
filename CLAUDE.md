@@ -40,7 +40,9 @@ delete. Change save behaviour there, not in one backend only.
 
 ## Walking pace and planning
 
-- `src/lib/pace.js`: learns pace from recorded GPX (timestamps) and predicts walk times;
+- `src/lib/pace.js`: learns pace from recorded GPX (timestamps) and predicts walk times. Records have
+  `mode` (walk/cycle; absent = walk): `detectSplit` splits bike-and-hike recordings at the bike drop, and
+  `walksWith`/`ridesWith` keep the two apart, so cycling never changes walking pace;
   `data/pace.json` holds per-walk fitted numbers only (no tracks), saved via `PUT /api/pace` or
   `github.saveFile`. `cleanPace` validates it for both.
 - `src/lib/plan.js`: GPX → walk/activate stages. `TripEdit.planRoute` adds drives and inserts them.
