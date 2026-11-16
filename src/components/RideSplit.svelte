@@ -1,12 +1,12 @@
 <script>
   // Map of a recording split into cycling and walking, for checking the split
-  // before it's added. Click the track to move the bike drop.
+  // before it's added. Click the track to add a bike drop; click a drop to remove it.
   import { onMount } from 'svelte';
   import L from 'leaflet';
   import { createMap } from '../lib/map.js';
   import { splitRanges } from '../lib/pace.js';
 
-  let { pts, split, onpick } = $props();
+  let { pts, split, onpick, onremove } = $props();
 
   const COLORS = { walk: '#1c7ed6', cycle: '#e8590c' };
   let el;
@@ -33,12 +33,14 @@
           .addTo(layer);
       }
     }
-    if (split.kind === 'mixed') {
-      const p = pts[split.a];
-      L.circleMarker([p.lat, p.lon], { radius: 7, color: '#222', weight: 2, fillColor: '#fff', fillOpacity: 1 })
-        .bindTooltip('Bike drop', { direction: 'top', offset: [0, -8] })
+    (split.walks ?? []).forEach(([a], i) => {
+      const p = pts[a];
+      const label = split.walks.length > 1 ? `Bike drop ${i + 1}` : 'Bike drop';
+      L.circleMarker([p.lat, p.lon], { radius: 7, color: '#222', weight: 2, fillColor: '#fff', fillOpacity: 1, bubblingMouseEvents: false })
+        .bindTooltip(`${label} (click to remove)`, { direction: 'top', offset: [0, -8] })
+        .on('click', () => onremove?.(i))
         .addTo(layer);
-    }
+    });
   });
 </script>
 
@@ -46,7 +48,7 @@
 <div class="key small">
   <span><i style="background:{COLORS.cycle}"></i>Cycling</span>
   <span><i style="background:{COLORS.walk}"></i>Walking</span>
-  <span class="muted">Click the track where you left the bike to move the drop.</span>
+  <span class="muted">Click the track where you left the bike to add a bike drop; click a drop to remove it.</span>
 </div>
 
 <style>

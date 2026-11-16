@@ -6,7 +6,7 @@
   import { loadHome, saveHome, clearHome, loadDrivePad, saveDrivePad, DEFAULT_DRIVE_PAD } from '../lib/home.js';
   import { parseGpx, gpxName } from '../lib/gpx.js';
   import {
-    recordingPoints, detectSplit, splitAt, learnRecording, combineWalks, walkMinutes, walksWith, ridesWith,
+    recordingPoints, detectSplit, addDrop, removeDrop, learnRecording, combineWalks, walkMinutes, walksWith, ridesWith,
     TERRAINS, DEFAULT_TERRAIN, COMPANY, DEFAULT_COMPANY, MODES, NAISMITH,
   } from '../lib/pace.js';
   import RideSplit from '../components/RideSplit.svelte';
@@ -314,7 +314,9 @@
             <button class="small" onclick={() => setSplit(item, { kind: 'walk' })}>All walking</button>
             <button class="small" onclick={() => setSplit(item, { kind: 'cycle' })}>All cycling</button>
           </div>
-          <RideSplit pts={item.pts} split={item.split} onpick={(p) => setSplit(item, splitAt(item.pts, p))} />
+          <RideSplit pts={item.pts} split={item.split}
+                     onpick={(p) => setSplit(item, addDrop(item.pts, item.split, p))}
+                     onremove={(i) => setSplit(item, removeDrop(item.pts, item.split, i))} />
           <p class="small">
             {#each recs as r}
               <span class="part"><b>{MODES[r.mode]}:</b> {r.distanceKm.toFixed(1)} km, {r.ascentM} m up, {fmtDuration(r.movingMin)} moving

@@ -100,12 +100,13 @@ function steps(pts, from = 0, to = pts.length - 1) {
 }
 
 /**
- * Work out which parts of a recording were cycled. The usual day is: cycle in,
- * leave the bike, walk up and back, cycle out. So the walk is the longest slow
- * stretch, the ride out starts with the first fast step after it, and the bike
- * drop is where that ride starts (you first reached it at the end of the ride in).
- * @returns {{ kind: 'walk'|'cycle'|'mixed', a?: number, b?: number }} for 'mixed':
- *   cycled up to point a, walked from a to b, cycled from b to the end
+ * Work out which parts of a recording were cycled. A day can have several bike
+ * drops (cycle in, walk up a hill and back, cycle on, walk up the next...): each
+ * long slow stretch between rides is a walk. The bike drop for a walk is where
+ * the ride after it starts, and the walk began when you first reached that spot.
+ * (Slow, steep cycling counts as cycling.)
+ * @returns {{ kind: 'walk'|'cycle'|'mixed', walks?: number[][] }} for 'mixed': the point
+ *   ranges [a, b] walked from each bike drop; everything else was cycled
  */
 export function detectSplit(pts) {
   const st = steps(pts);
@@ -116,59 +117,111 @@ export function detectSplit(pts) {
     return min > 0 ? km / (min / 60) : 0;
   });
   const fast = speed.map((v, k) => v >= FAST_KMH && st[k].minutes < 30);
-  const fastMin = st.reduce((t, s, k) => t + (fast[k] ? s.minutes : 0), 0);
-  if (fastMin < 3) return { kind: 'walk' };
+  if (st.reduce((t, s, k) => t + (fast[k] ? s.minutes : 0), 0) < 3) return { kind: 'walk' };
 
-  // Longest stretch of time with no fast steps: the walk.
-  let best = null, run = null;
+  // Runs of fast and slow steps. A fast moment under 2 minutes is still walking;
+  // a slow stretch under 15 minutes between rides is cycling (a steep climb, a gate).
+  let runs = [];
   st.forEach((s, k) => {
-    if (fast[k]) { run = null; return; }
-    run ??= { start: k, end: k, minutes: 0 };
-    run.end = k;
-    run.minutes += s.minutes;
-    if (!best || run.minutes > best.minutes) best = { ...run };
+    const last = runs.at(-1);
+    if (last && last.fast === fast[k]) { last.end = k; last.minutes += s.minutes; }
+    else runs.push({ fast: fast[k], start: k, end: k, minutes: s.minutes });
   });
-  if (!best || best.minutes < 15) return { kind: 'cycle' };
+  const merge = (keep) => {
+    const out = [];
+    for (const r of runs) {
+      const fastNow = keep(r) ? r.fast : !r.fast;
+      const last = out.at(-1);
+      if (last && last.fast === fastNow) { last.end = r.end; last.minutes += r.minutes; }
+      else out.push({ ...r, fast: fastNow });
+    }
+    runs = out;
+  };
+  merge((r) => !r.fast || r.minutes >= 2);
+  merge((r) => r.fast || r.minutes >= 15);
+  if (!runs.some((r) => !r.fast)) return { kind: 'cycle' };
+  if (!runs.some((r) => r.fast)) return { kind: 'walk' };
 
-  const fastBefore = fast.slice(0, best.start).some(Boolean);
-  const afterK = fast.findIndex((f, k) => f && k > best.end);
-  const b = afterK >= 0 ? st[afterK].from : pts.length - 1;
-  let a = fastBefore ? st[best.start].from : 0;
-  if (afterK >= 0 && fastBefore) {
-    // You reached the bike drop at the end of the ride in: the first time the
-    // track gets to where the ride out starts. (Slow uphill cycling counts too.)
-    const at = pts.findIndex((p, i) => i < b && distanceM(p, pts[b]) <= DROP_M);
-    if (at > 0) a = at;
+  // Smoothing shifts a change of mode by a minute or so. The bike drop is where you
+  // stopped at the bike: the slowest step around where the ride starts.
+  const rawKmh = (k) => (st[k].minutes > 0 ? st[k].km / (st[k].minutes / 60) : 0);
+  const rideStart = (k0) => {
+    let kb = k0;
+    for (let q = Math.max(0, k0 - 4); q <= Math.min(st.length - 1, k0 + 2); q++) if (rawKmh(q) < rawKmh(kb)) kb = q;
+    return st[kb].to;
+  };
+
+  const walks = [];
+  runs.forEach((r, i) => {
+    if (r.fast) return;
+    const rideBefore = i > 0, rideAfter = i < runs.length - 1;
+    const b = rideAfter ? rideStart(runs[i + 1].start) : pts.length - 1;
+    let a = rideBefore ? st[r.start].from : 0;
+    if (rideBefore && rideAfter) {
+      // Reached the bike drop at the end of the ride in: the first time since the
+      // last walk that the track gets to where the next ride starts.
+      const from = walks.at(-1)?.[1] ?? 0;
+      for (let p = from; p < b; p++) if (distanceM(pts[p], pts[b]) <= DROP_M) { a = p; break; }
+    }
+    if (b - a >= 2) walks.push([a, b]);
+  });
+  return makeSplit(pts, walks);
+}
+
+/** Tidy a list of walk ranges into a split: sorted, overlaps merged, and the kind worked out. */
+function makeSplit(pts, walks) {
+  const sorted = walks.filter(([a, b]) => b > a).sort((x, y) => x[0] - y[0]);
+  const merged = [];
+  for (const w of sorted) {
+    const last = merged.at(-1);
+    if (last && w[0] <= last[1]) last[1] = Math.max(last[1], w[1]);
+    else merged.push([...w]);
   }
-  if (a <= 0 && b >= pts.length - 1) return { kind: 'walk' };
-  // Barely any walking between leaving and collecting the bike (e.g. a slow climb
-  // and a stop on top): it was a bike ride.
-  if (pathKm(pts, a, b) < 0.5) return { kind: 'cycle' };
-  return { kind: 'mixed', a, b };
+  const last = pts.length - 1;
+  if (!merged.length || merged.every(([a, b]) => pathKm(pts, a, b) < 0.5)) return { kind: 'cycle' };
+  if (merged.length === 1 && merged[0][0] === 0 && merged[0][1] === last) return { kind: 'walk' };
+  return { kind: 'mixed', walks: merged };
 }
 
 /**
- * A split from a bike drop you picked: cycled until you first reached it,
- * walked until you last left it, cycled from there.
+ * The walk from a bike drop you picked: from when you first reached it until you
+ * set off again after coming back to it (or the end, if you never came back).
  */
-export function splitAt(pts, drop) {
-  let a = -1, b = -1, nearest = 0, nearestD = Infinity;
-  pts.forEach((p, i) => {
-    const d = distanceM(p, drop);
-    if (d < nearestD) { nearestD = d; nearest = i; }
-    if (d <= DROP_M) { if (a < 0) a = i; b = i; }
-  });
-  if (a < 0) a = b = nearest;
-  if (b - a < 10) b = pts.length - 1; // only passed it once: cycled in, walked the rest
-  return { kind: 'mixed', a, b };
+function walkFrom(pts, drop) {
+  let nearest = 0, nearestD = Infinity;
+  pts.forEach((p, i) => { const d = distanceM(p, drop); if (d < nearestD) { nearestD = d; nearest = i; } });
+  const near = (i) => distanceM(pts[i], pts[nearest]) <= DROP_M;
+  let a = nearest;
+  while (a > 0 && near(a - 1)) a--; // first point of this visit
+  let i = a;
+  while (i < pts.length - 1 && near(i)) i++; // set off on foot
+  while (i < pts.length - 1 && !near(i)) i++; // back at the bike
+  if (!near(i)) return [a, pts.length - 1];
+  while (i < pts.length - 1 && near(i + 1)) i++; // ride off from the drop
+  return [a, i];
+}
+
+/** The split with a bike drop added where you clicked. */
+export function addDrop(pts, split, drop) {
+  const walks = split.kind === 'mixed' ? split.walks : [];
+  return makeSplit(pts, [...walks, walkFrom(pts, drop)]);
+}
+
+/** The split without the walk from its `index`th bike drop. */
+export function removeDrop(pts, split, index) {
+  const walks = (split.walks ?? []).filter((_, i) => i !== index);
+  return walks.length ? makeSplit(pts, walks) : { kind: 'cycle' };
 }
 
 /** Point index ranges for each mode under a split. */
 export function splitRanges(pts, split) {
   const last = pts.length - 1;
   if (split.kind !== 'mixed') return { [split.kind]: [[0, last]] };
-  const cycle = [[0, split.a], [split.b, last]].filter(([f, t]) => t - f >= 2);
-  return { walk: [[split.a, split.b]], cycle };
+  const cycle = [];
+  let from = 0;
+  for (const [a, b] of split.walks) { cycle.push([from, a]); from = b; }
+  cycle.push([from, last]);
+  return { walk: split.walks, cycle: cycle.filter(([f, t]) => t - f >= 2) };
 }
 
 /**
