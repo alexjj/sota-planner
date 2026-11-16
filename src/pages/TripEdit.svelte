@@ -17,6 +17,7 @@
   import { resizeImage, photoFileName } from '../lib/image.js';
   import { normalizeTrip, blankRoute, routeInfo, routeLabel, stageRouteId, routeStages, newId } from '../lib/trip.js';
   import { getSummitRoutes, SMP_COLORS } from '../lib/sotamaps.js';
+  import { segment, segmentKey, joinSegments, DRAW_MODES, DRAW_SOURCE } from '../lib/draw.js';
   import SummitPicker from '../components/SummitPicker.svelte';
   import TagInput from '../components/TagInput.svelte';
   import TimetableEditor from '../components/TimetableEditor.svelte';
@@ -42,6 +43,11 @@
   let saving = $state(false);
   let pickParking = $state(false);
   let pickDrop = $state(null);     // route id while choosing a bike drop on the map
+  // Drawing a route on the map: { routeId, points: [{lat, lon}], modes: ['path'|'line'] per stretch, history }
+  let draw = $state.raw(null);
+  let drawMode = $state('path');   // how the next stretch is drawn
+  let segDone = $state.raw(new Map()); // segment key -> finished stretch
+  let drawLayer;
   let dirty = $state(false);
   let initial = '';
   let mapEl;
@@ -463,6 +469,7 @@
     text = h.text;
     gpxChanges[r.id] = text;
     lines[r.id] = parsed;
+    delete r.drawn; // a drawing that made the old GPX no longer matches
     const st = gpxStats(parsed);
     if (!r.parking && st.start) setParking(r, { ...st.start }, 'Start of GPX route');
     if (!trip.name) trip.name = nice;
@@ -480,7 +487,81 @@
   function removeGpx(r) {
     gpxChanges[r.id] = null;
     lines[r.id] = [];
+    delete r.drawn;
   }
+
+  // ---- drawing a route
+  const drawKeys = $derived(draw ? draw.modes.map((m, i) => segmentKey(draw.points[i], draw.points[i + 1], m)) : []);
+  const drawSegs = $derived(drawKeys.map((k) => segDone.get(k) ?? null));
+  const drawBusy = $derived(drawSegs.some((x) => !x));
+  const drawLine = $derived(drawSegs.every(Boolean) && drawSegs.length ? joinSegments(drawSegs) : []);
+  const drawFallbacks = $derived(drawSegs.filter((x) => x?.fallback).length);
+
+  /** Fetch any stretches not worked out yet. */
+  $effect(() => {
+    if (!draw) return;
+    draw.modes.forEach((m, i) => {
+      const key = drawKeys[i];
+      if (segDone.has(key)) return;
+      segment(draw.points[i], draw.points[i + 1], m).then((sg) => {
+        segDone = new Map(segDone).set(key, sg);
+      });
+    });
+  });
+
+  function startDraw(r) {
+    if (lines[r.id]?.length && !r.drawn &&
+        !confirm('Drawing a route replaces this route\'s GPX when you click Done. Carry on?')) return;
+    pickDrop = null;
+    pickParking = false;
+    activeId = r.id;
+    const d = r.drawn;
+    draw = { routeId: r.id, points: d ? d.points.map((x) => ({ ...x })) : [], modes: d ? [...d.modes] : [], history: [] };
+  }
+
+  /** Change the drawing, keeping the old one for Undo. */
+  function editDraw(points, modes) {
+    draw = { ...draw, points, modes, history: [...draw.history, { points: draw.points, modes: draw.modes }] };
+  }
+
+  function drawAdd(ll) {
+    const p = { lat: round6(ll.lat), lon: round6(ll.lng ?? ll.lon) };
+    editDraw([...draw.points, p], draw.points.length ? [...draw.modes, drawMode] : draw.modes);
+  }
+
+  function drawMove(i, ll) {
+    editDraw(draw.points.map((p, k) => (k === i ? { lat: round6(ll.lat), lon: round6(ll.lng) } : p)), draw.modes);
+  }
+
+  function drawRemove(i) {
+    const points = draw.points.filter((_, k) => k !== i);
+    const modes = [...draw.modes];
+    // The first or last point takes its one stretch with it; a middle point joins its two.
+    if (i === 0) modes.splice(0, 1);
+    else modes.splice(i - 1, 1);
+    editDraw(points, modes);
+  }
+
+  function drawToggle(i) {
+    editDraw(draw.points, draw.modes.map((m, k) => (k === i ? (m === 'path' ? 'line' : 'path') : m)));
+  }
+
+  function drawUndo() {
+    const prev = draw.history.at(-1);
+    if (prev) draw = { ...draw, ...prev, history: draw.history.slice(0, -1) };
+  }
+
+  async function drawDone() {
+    const r = trip.routes.find((x) => x.id === draw.routeId);
+    if (!r || drawBusy || draw.points.length < 2) return;
+    const drawn = { points: draw.points, modes: draw.modes };
+    const name = r.name || trip.name || 'Drawn route';
+    const text = toGpx([drawLine], { name, src: DRAW_SOURCE });
+    draw = null;
+    await loadGpxText(r, text, name, 'The drawn route');
+    r.drawn = drawn; // after loading, which clears any old drawing
+  }
+
 
   // ---- parking
   function setParking(r, p, label) {
@@ -623,7 +704,7 @@
       const ri = info.get(r.id);
       if (!ri) continue;
       const isActive = r.id === active?.id;
-      if (lines[r.id]?.length) {
+      if (lines[r.id]?.length && draw?.routeId !== r.id) {
         overlay.addLayer(trackLayer(lines[r.id], { color: ri.color, opacity: isActive || !multi ? 0.95 : 0.5, weight: isActive && multi ? 5 : 4 })
           .bindTooltip(multi ? `${ri.number}. ${ri.label}` : ri.label, { sticky: true })
           .on('click', () => (activeId = r.id)));
@@ -720,13 +801,47 @@
   });
 
   $effect(() => {
-    if (mapEl) mapEl.style.cursor = pickParking || pickDrop ? 'crosshair' : '';
+    if (!map) return;
+    drawLayer.clearLayers();
+    if (!draw) return;
+    const color = info.get(draw.routeId)?.color ?? '#1c7ed6';
+    draw.modes.forEach((m, i) => {
+      const sg = drawSegs[i];
+      const latlngs = sg ? sg.pts.map((p) => [p.lat, p.lon]) : [[draw.points[i].lat, draw.points[i].lon], [draw.points[i + 1].lat, draw.points[i + 1].lon]];
+      L.polyline(latlngs, {
+        color: sg ? color : '#868e96', weight: 5, opacity: sg ? 0.9 : 0.6,
+        dashArray: !sg ? '2 8' : m === 'line' ? '8 6' : null, bubblingMouseEvents: false,
+      }).bindTooltip(sg ? `${DRAW_MODES[m]}${sg.fallback ? ' (no path found, drawn straight)' : ''}: click to switch` : 'Finding the path…', { sticky: true })
+        .on('click', () => drawToggle(i))
+        .addTo(drawLayer);
+    });
+    draw.points.forEach((p, i) => {
+      const end = i === 0 ? 'start' : i === draw.points.length - 1 ? 'end' : '';
+      L.marker([p.lat, p.lon], {
+        draggable: true,
+        icon: L.divIcon({ className: 'parking-wrap', html: `<div class="draw-point ${end}" style="border-color:${color}"></div>`, iconSize: [14, 14] }),
+      }).bindTooltip(`${end ? `${end[0].toUpperCase()}${end.slice(1)}. ` : ''}Drag to move, click to remove`)
+        .on('click', () => drawRemove(i))
+        .on('dragend', (e) => drawMove(i, e.target.getLatLng()))
+        .addTo(drawLayer);
+    });
+  });
+
+  $effect(() => {
+    if (mapEl) mapEl.style.cursor = pickParking || pickDrop || draw ? 'crosshair' : '';
   });
 
   onMount(() => {
     const created = createMap(mapEl);
     smpLayer = L.layerGroup().addTo(created.map);
     overlay = L.layerGroup().addTo(created.map);
+    drawLayer = L.layerGroup().addTo(created.map);
+    // While drawing, clicking a summit or hill adds a point on it instead of opening its popup.
+    created.map.on('popupopen', (e) => {
+      if (!draw) return;
+      created.map.closePopup();
+      drawAdd(e.popup.getLatLng());
+    });
     map = created.map;
     sizeSummitsOnZoom(map);
     map.on('click', (e) => {
@@ -736,6 +851,7 @@
         if (r) addDrop(r, e.latlng);
         return;
       }
+      if (draw) { drawAdd(e.latlng); return; }
       if (!pickParking || !active) return;
       setParking(active, { lat: round6(e.latlng.lat), lon: round6(e.latlng.lng) });
       pickParking = false;
@@ -947,12 +1063,45 @@
               </div>
             {/if}
             <div class="row">
+              <button class="small" onclick={() => startDraw(r)} disabled={!!draw}
+                      title="Draw the route on the map, following paths or in straight lines">{r.drawn ? 'Edit drawing' : 'Draw route'}</button>
               <label class="button file small">
                 {lines[r.id]?.length ? 'Replace GPX…' : 'Choose GPX…'}
                 <input type="file" accept=".gpx,application/gpx+xml" onchange={(e) => loadGpxFile(r, e.currentTarget.files[0])} />
               </label>
               {#if lines[r.id]?.length}<button class="small danger" onclick={() => removeGpx(r)}>Remove GPX</button>{/if}
             </div>
+
+            {#if draw?.routeId === r.id}
+              {@const dst = drawLine.length > 1 ? gpxStats([drawLine]) : null}
+              <div class="draw-panel">
+                <div class="row small">
+                  <span>Next stretch:</span>
+                  {#each Object.entries(DRAW_MODES) as [key, label]}
+                    <button class="small" class:primary={drawMode === key} onclick={() => (drawMode = key)}>{label}</button>
+                  {/each}
+                  <span class="spacer"></span>
+                  <button class="small" onclick={drawUndo} disabled={!draw.history.length}>Undo</button>
+                  <button class="small" onclick={() => editDraw([], [])} disabled={!draw.points.length}>Clear</button>
+                </div>
+                <p class="muted small">
+                  Click the map to add points. Drag a point to move it, click it to remove it, and click a stretch to switch
+                  it between following paths and a straight line.
+                </p>
+                {#if dst}
+                  {@const p = paceFor(pace, r.terrain, r.company)}
+                  <p class="small tabular">{dst.distanceKm} km · {dst.ascentM} m up · high point {dst.maxEleM ?? '?'} m ·
+                    walking about <strong>{fmtDuration(round5(routeWalkMinutes([drawLine], p.params)))}</strong>
+                    <span class="muted">({oneWayKm([drawLine]) != null ? 'there and back' : 'as drawn'})</span></p>
+                {/if}
+                {#if drawFallbacks}<p class="small">No path was found for {drawFallbacks === 1 ? 'one stretch' : `${drawFallbacks} stretches`}, so {drawFallbacks === 1 ? 'it was' : 'they were'} drawn straight.</p>{/if}
+                <div class="row">
+                  <button class="primary" onclick={drawDone} disabled={drawBusy || draw.points.length < 2}>Done</button>
+                  <button onclick={() => (draw = null)}>Cancel</button>
+                  {#if drawBusy}<span class="muted small">Finding paths…</span>{/if}
+                </div>
+              </div>
+            {/if}
 
             <h3>{multi ? `Parking P${ri.number}` : 'Parking'}</h3>
             <div class="row">
@@ -1066,6 +1215,7 @@
           {/each}
         </div>
       {/if}
+      {#if draw}<p class="small">Drawing: click the map to add points ({DRAW_MODES[drawMode].toLowerCase()} next).</p>{/if}
       {#if pickDrop}<p class="small">Click the route's track where you'll leave the bike.</p>{/if}
       {#if pickParking}<p class="small">Click the map to set the parking spot{multi ? ` for route ${info.get(active?.id)?.number}` : ''}.</p>{/if}
     </div>
@@ -1096,6 +1246,11 @@
   .park-label { margin-top: 0.2rem; }
   .terrain { margin: 0.3rem 0 0.5rem; }
   .bike-drops { margin: 0 0 0.5rem; align-items: center; }
+  .draw-panel { border: 1px solid var(--line); border-radius: var(--radius); padding: 0.5rem; margin: 0.4rem 0 0.6rem;
+    display: flex; flex-direction: column; gap: 0.35rem; }
+  .draw-panel p { margin: 0; }
+  :global(.draw-point) { width: 12px; height: 12px; border-radius: 50%; background: #fff; border: 3px solid #222; box-sizing: border-box; }
+  :global(.draw-point.start), :global(.draw-point.end) { border-radius: 2px; }
   label.inline { display: inline; margin: 0; }
   .chip-link { font-size: 0.75em; margin-left: 0.15em; text-decoration: none; }
   .chip-link:hover { text-decoration: underline; }
