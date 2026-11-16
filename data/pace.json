@@ -5,6 +5,8 @@
       "name": "Creag na Doire Duibhe",
       "date": "2026-11-10",
       "terrain": "moderate",
+      "company": "solo",
+      "mode": "walk",
       "distanceKm": 5.16,
       "ascentM": 254,
       "descentM": 254,
@@ -39,6 +41,8 @@
       "name": "Carn Glas-choire",
       "date": "2026-11-05",
       "terrain": "easy",
+      "company": "solo",
+      "mode": "walk",
       "distanceKm": 13.55,
       "ascentM": 423,
       "descentM": 420,
@@ -69,10 +73,86 @@
       }
     },
     {
+      "id": "wb26tvk",
+      "name": "Leathad an Taobhain & Carn Dearg Mor (walk)",
+      "date": "2026-10-06",
+      "terrain": "moderate",
+      "company": "solo",
+      "mode": "walk",
+      "src": "2026-10-06 5591",
+      "distanceKm": 6.06,
+      "ascentM": 522,
+      "descentM": 513,
+      "movingMin": 95,
+      "restMin": 17,
+      "stopMin": 79,
+      "sums": {
+        "xtx": [
+          1.6046,
+          1.4014,
+          1.3481,
+          2.5213,
+          0.1808,
+          2.7474
+        ],
+        "xty": [
+          25.3231,
+          26.4675,
+          19.1002
+        ],
+        "n": 23
+      },
+      "fit": {
+        "flat": 10.78,
+        "up": 4.41,
+        "down": 1.37,
+        "rest": 0.179
+      }
+    },
+    {
+      "id": "wjdr11q",
+      "name": "Leathad an Taobhain & Carn Dearg Mor (cycle)",
+      "date": "2026-10-06",
+      "terrain": "moderate",
+      "company": "solo",
+      "mode": "cycle",
+      "src": "2026-10-06 5591",
+      "distanceKm": 32.05,
+      "ascentM": 601,
+      "descentM": 604,
+      "movingMin": 139,
+      "restMin": 11,
+      "stopMin": 0,
+      "sums": {
+        "xtx": [
+          18.6891,
+          3.2419,
+          3.597,
+          2.5115,
+          0.0931,
+          2.6668
+        ],
+        "xty": [
+          78.8542,
+          29.2556,
+          10.2705
+        ],
+        "n": 57
+      },
+      "fit": {
+        "flat": 2.92,
+        "up": 7.89,
+        "down": -0.36,
+        "rest": 0.079
+      }
+    },
+    {
       "id": "wmzw3c2",
       "name": "Creag Liath",
       "date": "2026-09-23",
       "terrain": "moderate",
+      "company": "solo",
+      "mode": "walk",
       "distanceKm": 8.53,
       "ascentM": 475,
       "descentM": 475,
@@ -107,6 +187,8 @@
       "name": "Mayar and Driesh",
       "date": "2026-06-22",
       "terrain": "easy",
+      "company": "solo",
+      "mode": "walk",
       "distanceKm": 15.2,
       "ascentM": 821,
       "descentM": 816,
@@ -141,6 +223,8 @@
       "name": "Ben Vorlich & Stuc a'Chroin",
       "date": "2026-06-02",
       "terrain": "moderate",
+      "company": "solo",
+      "mode": "walk",
       "distanceKm": 15.6,
       "ascentM": 1177,
       "descentM": 1172,
@@ -175,6 +259,8 @@
       "name": "Càrn Dearg, Càrn Sgulain &amp; A' Chailleach",
       "date": "2025-11-04",
       "terrain": "easy",
+      "company": "solo",
+      "mode": "walk",
       "distanceKm": 25.08,
       "ascentM": 1124,
       "descentM": 1122,
