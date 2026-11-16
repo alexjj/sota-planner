@@ -15,6 +15,7 @@
   import { parseGpx, gpxStats, distanceM } from '../lib/gpx.js';
   import { resizeImage, photoFileName } from '../lib/image.js';
   import { normalizeTrip, blankRoute, routeInfo, routeLabel, stageRouteId, routeStages, newId } from '../lib/trip.js';
+  import { getSummitRoutes, SMP_COLORS } from '../lib/sotamaps.js';
   import SummitPicker from '../components/SummitPicker.svelte';
   import TagInput from '../components/TagInput.svelte';
   import TimetableEditor from '../components/TimetableEditor.svelte';
@@ -43,6 +44,9 @@
   let mapEl;
   let map = $state.raw(null);
   let overlay;
+  let smpLayer;                    // SOTAmaps routes switched on
+  let smp = $state({});            // summit ref -> { loading, error, routes } from SOTAmaps
+  let smpShown = $state({});       // SOTAmaps route id -> true while it's on the map
 
   const info = $derived(trip && summitsData ? routeInfo(trip, summitsData.byRef) : new Map());
   const multi = $derived((trip?.routes.length ?? 0) > 1);
@@ -549,12 +553,64 @@
     }
   });
 
+  // ---- SOTAmaps routes for the trip's summits (view only, not saved)
+  $effect(() => {
+    for (const r of trip?.routes ?? []) {
+      for (const ref of r.summits) {
+        if (smp[ref]) continue;
+        smp[ref] = { loading: true, routes: [] };
+        getSummitRoutes(ref)
+          .then((routes) => { smp[ref] = { routes }; })
+          .catch((e) => { smp[ref] = { error: e.message, routes: [] }; });
+      }
+    }
+  });
+
+  /** Colour for each listed SOTAmaps route, so list and map match. */
+  const smpColors = $derived.by(() => {
+    const out = {};
+    let i = 0;
+    for (const r of trip?.routes ?? []) {
+      for (const ref of r.summits) {
+        for (const t of smp[ref]?.routes ?? []) if (!(t.id in out)) out[t.id] = SMP_COLORS[i++ % SMP_COLORS.length];
+      }
+    }
+    return out;
+  });
+
+  function smpTrack(id) {
+    for (const v of Object.values(smp)) {
+      const t = v.routes.find((x) => x.id === id);
+      if (t) return t;
+    }
+    return null;
+  }
+
+  function toggleSmp(t, on) {
+    smpShown[t.id] = on;
+    if (!on || !map) return;
+    const b = L.latLngBounds(t.points.map((p) => [p.lat, p.lon]));
+    if (!map.getBounds().contains(b)) map.fitBounds(b, { padding: [40, 40], maxZoom: mapZoom(map, 14) });
+  }
+
+  $effect(() => {
+    if (!map) return;
+    smpLayer.clearLayers();
+    for (const [tid, on] of Object.entries(smpShown)) {
+      const t = on && smpTrack(tid);
+      if (!t) continue;
+      smpLayer.addLayer(trackLayer([t.points], { color: smpColors[tid] ?? SMP_COLORS[0], weight: 4, opacity: 0.9, dashArray: '8 6' })
+        .bindTooltip(`SOTAmaps: ${esc(t.title)} (${esc(t.callsign)})`, { sticky: true }));
+    }
+  });
+
   $effect(() => {
     if (mapEl) mapEl.style.cursor = pickParking ? 'crosshair' : '';
   });
 
   onMount(() => {
     const created = createMap(mapEl);
+    smpLayer = L.layerGroup().addTo(created.map);
     overlay = L.layerGroup().addTo(created.map);
     map = created.map;
     sizeSummitsOnZoom(map);
@@ -685,6 +741,34 @@
               {/each}
               {#if !r.summits.length && !r.hills.length}<span class="muted small">None yet. Search above, or click them on the map.</span>{/if}
             </div>
+            {#each r.summits as ref (ref)}
+              {@const found = smp[ref]}
+              {#if found}
+                <div class="smp small">
+                  <span class="muted">SOTAmaps routes for {ref}:</span>
+                  {#if found.loading}<span class="muted">checking…</span>
+                  {:else if found.error}<span class="muted">couldn't reach SOTAmaps ({found.error})</span>
+                  {:else if !found.routes.length}<span class="muted">none uploaded</span>
+                  {:else}
+                    <ul>
+                      {#each found.routes as t (t.id)}
+                        <li>
+                          <label title={t.notes || null}>
+                            <input type="checkbox" checked={!!smpShown[t.id]} onchange={(e) => toggleSmp(t, e.currentTarget.checked)} />
+                            <span class="swatch" style="--c: {smpColors[t.id]}"></span>
+                            <span>{t.title}
+                              <span class="muted">· {t.callsign} · {t.distanceKm} km · {t.ascentM} m · {t.posted.slice(0, 4)}</span></span>
+                          </label>
+                          {#if t.notes}
+                            <details><summary class="muted">Notes</summary><p class="smp-notes">{t.notes}</p></details>
+                          {/if}
+                        </li>
+                      {/each}
+                    </ul>
+                  {/if}
+                </div>
+              {/if}
+            {/each}
             {#if suggestions[r.id]?.length}
               <div class="suggest small">
                 <span class="muted">On this GPX track:</span>
@@ -866,6 +950,14 @@
   :global(.leaflet-popup-content .popup-action) { margin-top: 0.4em; }
   .chips { display: flex; flex-wrap: wrap; gap: 0.35rem; }
   .chip button { border: 0; background: none; padding: 0 0.2em; }
+  .smp { margin-top: 0.4rem; }
+  .smp ul { list-style: none; margin: 0.2rem 0 0; padding: 0; }
+  .smp li { margin: 0.15rem 0; }
+  .smp label { display: flex; align-items: baseline; gap: 0.35rem; font-weight: normal; margin: 0; cursor: pointer; }
+  .smp .swatch { flex: none; display: inline-block; width: 1.4em; height: 0; border-top: 3px dashed var(--c); transform: translateY(-0.25em); }
+  .smp input { flex: none; }
+  .smp details { margin-left: 1.6rem; }
+  .smp-notes { white-space: pre-line; margin: 0.2rem 0 0.4rem; }
   .suggest { display: flex; flex-wrap: wrap; gap: 0.3rem; align-items: center; }
   .file input { display: none; }
   .add-route select { max-width: 22em; }
