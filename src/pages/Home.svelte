@@ -3,6 +3,7 @@
   import L from 'leaflet';
   import { createMap, summitMarker, hillMarker, parkingMarker, trackLayer, esc, summitLinks, hillLinks, COLORS, POINTS_COLORS, sizeSummitsOnZoom, webZoom, mapZoom } from '../lib/map.js';
   import { getSummits, getHills, getIndex, getTrip, saveTrip } from '../lib/store.js';
+  import { getMyActivations } from '../lib/activations.js';
   import { showFlash } from '../lib/flash.svelte.js';
   import { fmtDuration } from '../lib/time.js';
 
@@ -14,6 +15,7 @@
   let trips = $state([]);
   let summitsData = $state(null);
   let hillsData = $state(null);
+  let activated = null; // summit ref -> { count, last } from your activator log, or null
   let query = $state('');
   let summitFilter = $state(null);
   let loading = $state(true);
@@ -74,12 +76,18 @@
     const tripList = ts.length ? `<ul>${ts.map(tripLink).join('')}</ul>` : '<div class="muted">No trips yet</div>';
     return `<h4><span class="ref">${esc(s.ref)}</span> ${esc(s.name)}</h4>
       <div class="muted">${s.alt} m · ${s.points} pts${s.bonus ? ` (+${s.bonus} winter)` : ''} · ${s.activations} activations</div>
+      ${mine(s.ref)}
       ${tripList}
       <div class="row small">
         <a href="${links.sotlas}" target="_blank" rel="noopener">SOTLAS</a>
         <a href="${links.walkhighlands}" target="_blank" rel="noopener">Search WH</a>
         ${edit ? `<a href="#/new?summit=${encodeURIComponent(s.ref)}">+ New trip</a>` : ''}
       </div>`;
+  }
+
+  function mine(ref) {
+    const a = activated?.get(ref);
+    return a ? `<div class="activated-note">✓ You activated it ${a.count === 1 ? 'once' : `${a.count} times`}, last on ${esc(a.last)}</div>` : '';
   }
 
   function hillPopup(h) {
@@ -115,7 +123,10 @@
 
     (async () => {
       try {
-        [summitsData, hillsData, trips] = await Promise.all([getSummits(), getHills(), getIndex()]);
+        [summitsData, hillsData, trips, activated] = await Promise.all([
+          getSummits(), getHills(), getIndex(),
+          getMyActivations().catch((e) => { showFlash(`Couldn't load your activations: ${e.message}`); return null; }),
+        ]);
         if (gone) return; // left the page while loading
       } catch (e) {
         error = e.message;
@@ -164,11 +175,16 @@
         }
       }
 
+      // Summits you've activated go in their own layer, faded, so you can hide them.
       const summitGroup = L.layerGroup();
+      const activatedGroup = L.layerGroup();
       for (const s of summitsData.summits) {
-        summitGroup.addLayer(summitMarker(s, { planned: planned.has(s.ref) })
+        const done = activated?.has(s.ref);
+        const m = summitMarker(s, { planned: planned.has(s.ref) })
           .bindPopup(() => summitPopup(s))
-          .bindTooltip(`${s.ref} ${s.name}`));
+          .bindTooltip(`${s.ref} ${s.name}${done ? ' ✓' : ''}`);
+        if (done) m.setStyle({ fillOpacity: 0.35, color: '#222' });
+        (done ? activatedGroup : summitGroup).addLayer(m);
       }
 
       // Key to the summit colours, shown while SOTA summits are on.
@@ -177,24 +193,30 @@
         const div = L.DomUtil.create('div', 'points-legend');
         div.innerHTML = `<b>Points</b>${Object.entries(POINTS_COLORS).map(([p, c]) =>
           `<span><i style="background:${c}"></i>${p}</span>`).join('')}
-          <span><i class="ring" style="border-color:${COLORS.route}"></i>in a trip</span>`;
+          <span><i class="ring" style="border-color:${COLORS.route}"></i>in a trip</span>
+          ${activated ? `<span><i class="faded" style="background:${POINTS_COLORS[6]}"></i>activated</span>` : ''}`;
         return div;
       };
       legend.addTo(map);
       map.on('overlayadd overlayremove', (e) => {
-        if (e.layer !== summitGroup) return;
-        if (map.hasLayer(summitGroup)) legend.addTo(map); else legend.remove();
+        if (e.layer !== summitGroup && e.layer !== activatedGroup) return;
+        if (map.hasLayer(summitGroup) || map.hasLayer(activatedGroup)) legend.addTo(map); else legend.remove();
       });
 
       munroGroup.addTo(map);
       summitGroup.addTo(map);
       routes.addTo(map);
-      created.control.addOverlay(summitGroup, `<span style="color:${POINTS_COLORS[6]}">●</span> SOTA summits`);
+      created.control.addOverlay(summitGroup, `<span style="color:${POINTS_COLORS[6]}">●</span> SOTA summits${activated ? ' (not activated)' : ''}`);
+      if (activated) {
+        activatedGroup.addTo(map);
+        created.control.addOverlay(activatedGroup, `<span style="color:${POINTS_COLORS[6]};opacity:0.4">●</span> Activated by me (${activatedGroup.getLayers().length})`);
+      }
       created.control.addOverlay(munroGroup, `<span style="color:${COLORS.hill}">●</span> Munros`);
       created.control.addOverlay(topGroup, `<span style="color:${COLORS.top}">●</span> Corbetts &amp; Grahams`);
       created.control.addOverlay(routes, `<span style="color:${COLORS.route}">━</span> Routes & parking`);
       // Toggling a layer back on draws it on top, so keep summits and routes above the hills.
       map.on('overlayadd', () => {
+        if (map.hasLayer(activatedGroup)) activatedGroup.eachLayer((l) => l.bringToFront());
         if (map.hasLayer(summitGroup)) summitGroup.eachLayer((l) => l.bringToFront());
         if (map.hasLayer(routes)) routes.eachLayer((l) => l.bringToFront?.());
       });
@@ -335,6 +357,8 @@
   .map :global(.points-legend i) {
     display: inline-block; width: 10px; height: 10px; border-radius: 50%; border: 1px solid #fff;
   }
+  .map :global(.points-legend i.faded) { opacity: 0.45; border: 1.5px solid #222; box-sizing: border-box; }
+  .map :global(.activated-note) { color: #2b8a3e; margin-top: 0.2em; }
   .map :global(.points-legend i.ring) { background: #ddd; border-width: 2.5px; width: 8px; height: 8px; }
   @media (max-width: 800px) {
     .home { flex-direction: column-reverse; }

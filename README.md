@@ -105,6 +105,14 @@ data/
 Trips saved in the original single-route format (`data/routes/<id>/route.json`)
 are converted to this layout automatically when the edit server starts.
 
+## Your activated summits
+
+Set `VITE_SOTA_USER_ID` in `.env` to your SOTA database user id: the number in your activator log
+address, `https://api-db2.sota.org.uk/logs/activator/<id>/0/1`. The home map then puts the summits
+you've activated in their own layer, **Activated by me**, drawn faded with a dark outline, and their
+popups say how often and when you last activated them. Switch that layer off in the map's layer menu
+to see only summits you still need. The log is read live from the SOTA database each time the page loads.
+
 ## Editing tips
 
 - **More than one route:** use **+ Add another route** when you'll drive to more hills the same day. Each route gets a number and colour. These match its line on the map, its parking marker (P1, P2…), and its stages in the timetable.
