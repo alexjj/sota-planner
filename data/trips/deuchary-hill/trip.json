@@ -1,0 +1,88 @@
+{
+  "routes": [
+    {
+      "id": "rdnr6dh",
+      "name": "",
+      "gpx": "rdnr6dh.gpx",
+      "stats": {
+        "distanceKm": 6.35,
+        "ascentM": 393,
+        "descentM": 10,
+        "maxEleM": 505,
+        "start": {
+          "lat": 56.575147,
+          "lon": -3.591537
+        }
+      },
+      "parking": {
+        "label": "Start of GPX route",
+        "lat": 56.575147,
+        "lon": -3.591537
+      },
+      "summits": [
+        "GM/CS-108"
+      ],
+      "hills": [],
+      "terrain": "moderate"
+    }
+  ],
+  "name": "Deuchary Hill",
+  "tags": [
+    "Friday"
+  ],
+  "notes": "",
+  "links": [
+    {
+      "label": "Route",
+      "url": "https://www.plotaroute.com/route/3487764"
+    }
+  ],
+  "photos": [
+    {
+      "file": "mwji6y6i-kbev-pasted.jpg",
+      "caption": "Entrance to parking"
+    }
+  ],
+  "timetable": {
+    "start": "09:00",
+    "stages": [
+      {
+        "id": "zabv5t",
+        "type": "drive",
+        "label": "",
+        "minutes": 110,
+        "route": "rdnr6dh"
+      },
+      {
+        "id": "5a4a0b",
+        "type": "walk",
+        "label": "Walk in",
+        "minutes": 105,
+        "route": "rdnr6dh"
+      },
+      {
+        "id": "3pmy7l",
+        "type": "activate",
+        "label": "",
+        "minutes": 40,
+        "summit": "GM/CS-108"
+      },
+      {
+        "id": "hgw8p8",
+        "type": "walk",
+        "label": "Walk out",
+        "minutes": 90,
+        "route": "rdnr6dh"
+      },
+      {
+        "id": "dlm1n8",
+        "type": "drive",
+        "label": "Drive home",
+        "minutes": 110
+      }
+    ]
+  },
+  "id": "deuchary-hill",
+  "updated": "2026-11-16T16:54:55.718Z",
+  "created": "2026-11-16T16:54:55.718Z"
+}
