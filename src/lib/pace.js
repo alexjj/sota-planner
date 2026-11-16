@@ -399,7 +399,25 @@ export function paceFor(pace, terrain = DEFAULT_TERRAIN, company = DEFAULT_COMPA
   return { params: NAISMITH, basis: 'Naismith', count: 0 };
 }
 
-/** Minutes for a stretch of walking, before rounding. */
+/**
+ * Typical mountain-bike numbers on tracks, used until you've added some rides:
+ * 15 km/h on the flat, 6 min per 100 m up, a little quicker downhill.
+ */
+export const TYPICAL_RIDE = { flat: 4, up: 6, down: -1, rest: 0.05 };
+
+/**
+ * Cycling pace numbers: your rides with this company, else your solo rides,
+ * else TYPICAL_RIDE. `basis` says which, for showing to the user.
+ */
+export function ridePaceFor(pace, company = DEFAULT_COMPANY) {
+  let rides = ridesWith(pace, company);
+  let who = company === DEFAULT_COMPANY ? '' : ` w${COMPANY[company]?.slice(1) ?? ''}`;
+  if (!rides.length && company !== DEFAULT_COMPANY) { rides = ridesWith(pace); who = ''; }
+  if (rides.length) return { params: combineWalks(rides), basis: `your rides${who}`, count: rides.length };
+  return { params: TYPICAL_RIDE, basis: 'typical cycling', count: 0 };
+}
+
+/** Minutes for a stretch of walking (or cycling, with cycling numbers), before rounding. */
 export function walkMinutes({ distanceKm, upM, downM }, params) {
   const moving = params.flat * distanceKm + params.up * (upM / 100) + params.down * (downM / 100);
   return Math.max(0, moving) * (1 + (params.rest ?? 0));

@@ -3,9 +3,9 @@
   import L from 'leaflet';
   import { createMap, summitMarker, hillMarker, parkingMarker, trackLayer, esc, summitLinks, sizeSummitsOnZoom, mapZoom } from '../lib/map.js';
   import { getSummits, getHills, getTrip, getGpxText, gpxUrl, photoUrl, googleMapsUrl, getPace } from '../lib/store.js';
-  import { paceFor, statsMinutes, round5, TERRAINS, COMPANY } from '../lib/pace.js';
+  import { paceFor, ridePaceFor, statsMinutes, round5, TERRAINS, COMPANY } from '../lib/pace.js';
   import { parseGpx } from '../lib/gpx.js';
-  import { routeWalkMinutes, oneWayKm } from '../lib/plan.js';
+  import { routeWalkMinutes, routeTimes, oneWayKm } from '../lib/plan.js';
   import { fmtDuration } from '../lib/time.js';
   import { routeInfo, tripStats } from '../lib/trip.js';
   import Timetable from '../components/Timetable.svelte';
@@ -62,6 +62,14 @@
     const p = paceFor(pace, r.terrain, r.company);
     const who = COMPANY[r.company] && r.company !== 'solo' ? `, w${COMPANY[r.company].slice(1)}` : ''; // ', with Fraser'
     const l = lines[r.id];
+    if (l?.length && r.bikeDrops?.length) {
+      const rp = ridePaceFor(pace, r.company);
+      const t = routeTimes(l, r.bikeDrops, p.params, rp.params);
+      return {
+        minutes: round5(t.walk), cycleMinutes: round5(t.cycle), rideBasis: rp.basis,
+        basis: p.basis + (oneWayKm(l) != null ? ', there and back' : ''), terrain: TERRAINS[r.terrain ?? 'moderate'] + who,
+      };
+    }
     const minutes = l?.length ? routeWalkMinutes(l, p.params) : statsMinutes(r.stats, p.params);
     return { minutes: round5(minutes), basis: p.basis + (l?.length && oneWayKm(l) != null ? ', there and back' : ''), terrain: TERRAINS[r.terrain ?? 'moderate'] + who };
   };
@@ -100,6 +108,11 @@
             .addTo(map);
           bounds.extend([r.parking.lat, r.parking.lon]);
         }
+        (r.bikeDrops ?? []).forEach((d, k) => {
+          L.marker([d.lat, d.lon], {
+            icon: L.divIcon({ className: 'parking-wrap', html: `<div class="bike-icon" style="border-color:${ri.color}">🚲</div>`, iconSize: [24, 24] }),
+          }).bindTooltip(`${multi ? `${ri.number}: ` : ''}Bike drop${r.bikeDrops.length > 1 ? ` ${k + 1}` : ''}`).addTo(map);
+        });
         for (const ref of r.summits) {
           const s = summit(ref);
           if (s.lat == null) continue;
@@ -193,6 +206,9 @@
                   <div><span class="muted small">High point</span><strong>{r.stats.maxEleM} m</strong></div>
                 {/if}
                 <div title="{est.terrain}. Based on {est.basis}."><span class="muted small">{est.basis.startsWith('Naismith') ? 'Naismith' : 'Walking'}</span><strong>{fmtDuration(est.minutes)}</strong></div>
+                {#if est.cycleMinutes != null}
+                  <div title="Based on {est.rideBasis}."><span class="muted small">Cycling</span><strong>{fmtDuration(est.cycleMinutes)}</strong></div>
+                {/if}
               </div>
               {#if lines[r.id]}<ElevationProfile lines={lines[r.id]} color={ri.color} />{/if}
               <a class="small" href={gpxUrl(id, r.gpx)} download="{id}-{i + 1}.gpx">Download GPX</a>

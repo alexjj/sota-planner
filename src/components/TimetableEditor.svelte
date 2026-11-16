@@ -85,7 +85,8 @@
       {@const est = estimateFor(r)}
       <span class="row hint">
         {#if multi}<span class="route-badge" style="background:{ri.color}">{ri.number}</span>{/if}
-        GPX {st.distanceKm} km, {st.ascentM} m up{#if est} · walking about <strong>{fmtDuration(est.minutes)}</strong> <span class="muted">({est.basis})</span>{/if}
+        GPX {st.distanceKm} km, {st.ascentM} m up{#if est} · walking about <strong>{fmtDuration(est.minutes)}</strong>{#if est.cycleMinutes != null}, cycling <strong>{fmtDuration(est.cycleMinutes)}</strong>{/if}
+          <span class="muted">({est.basis}{est.rideBasis ? `; ${est.rideBasis}` : ''})</span>{/if}
       </span>
     {/if}
   {/each}

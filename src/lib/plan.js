@@ -40,12 +40,14 @@ export function routeWalkMinutes(lines, params) {
  * Walk and activation stages for one route, in walking order.
  * @param route         the trip route ({ id, summits })
  * @param lines         its parsed GPX (may be empty: then typical times are used)
+ * With bike drops (route.bikeDrops) there are cycle stages too: see bikeStages.
  * @param params        pace numbers from paceFor()
  * @param summitsByRef  Map of SOTA ref -> summit
+ * @param rideParams    cycling pace numbers from ridePaceFor(), for routes with bike drops
  * @returns {{ stages: object[], offTrack: string[], oneWayKm: number|null }} offTrack: summits the
  *   track doesn't reach; oneWayKm: for a one-way track, how far its end is from its start
  */
-export function walkStages(route, lines, params, summitsByRef) {
+export function walkStages(route, lines, params, summitsByRef, rideParams = null) {
   const stages = [];
   const name = (ref) => summitsByRef.get(ref)?.name ?? ref;
   const walk = (label, minutes) => stages.push({ id: newId(), type: 'walk', label, minutes, route: route.id });
@@ -66,6 +68,9 @@ export function walkStages(route, lines, params, summitsByRef) {
     else offTrack.push(ref);
   }
   on.sort((a, b) => a.index - b.index);
+  if (route.bikeDrops?.length && dropPasses(lines, route.bikeDrops).length) {
+    return bikeStages(route, lines, on, offTrack, params, rideParams ?? params, name);
+  }
 
   const legs = legsAt(lines, on.map((o) => o.index));
   const mins = (leg) => round5(walkMinutes(leg, params));
@@ -86,5 +91,136 @@ export function walkStages(route, lines, params, summitsByRef) {
     if (oneWay) walk('Walk back', mins(plus(legs.at(-1), reverse(whole))));
     else walk('Walk out', mins(legs.at(-1)));
   }
+  return { stages, offTrack, oneWayKm: oneWayKm(lines) };
+}
+
+// ---- Bike drops: cycle in, walk from the bike, cycle on or out.
+
+/** Passing within this of a bike drop counts as being at it (allows for GPS wander on the way back). */
+const DROP_M = 75;
+
+/**
+ * Distance in metres from p to the segment a–b, and which end is nearer.
+ * Planned and recorded tracks can have points 50–100 m apart, so passing a
+ * bike drop has to be measured to the line, not just its points.
+ */
+function toSegment(p, a, b) {
+  const kx = 111320 * Math.cos(p.lat * Math.PI / 180), ky = 110540;
+  const ax = (a.lon - p.lon) * kx, ay = (a.lat - p.lat) * ky;
+  const bx = (b.lon - p.lon) * kx, by = (b.lat - p.lat) * ky;
+  const dx = bx - ax, dy = by - ay, len2 = dx * dx + dy * dy;
+  const t = len2 ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / len2)) : 0;
+  return { d: Math.hypot(ax + t * dx, ay + t * dy), nearB: t > 0.5 };
+}
+
+/**
+ * Track point indexes (into lines.flat()) where you leave and collect the bike at
+ * each drop, sorted. Only the first two passes of a drop count: after that you're
+ * riding past it (e.g. on the way home from a second drop).
+ */
+export function dropPasses(lines, drops = []) {
+  const pts = lines?.flat() ?? [];
+  const out = [];
+  for (const d of drops) {
+    const passes = [];
+    let best = -1, bestD = Infinity;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const { d: dist, nearB } = toSegment(d, pts[i], pts[i + 1]);
+      if (dist <= DROP_M) {
+        if (dist < bestD) { best = nearB ? i + 1 : i; bestD = dist; }
+      } else if (best >= 0) {
+        passes.push(best);
+        best = -1; bestD = Infinity;
+      }
+    }
+    if (best >= 0) passes.push(best);
+    out.push(...passes.slice(0, 2));
+  }
+  return [...new Set(out)].sort((a, b) => a - b);
+}
+
+/**
+ * The route in order: stretches ({ mode, leg }) and summits ({ summit: ref }).
+ * With bike drops you start on the bike and swap between cycling and walking each
+ * time the track passes a drop. A one-way track is followed by the same stretches
+ * in reverse, each the same mode as on the way out (summits aren't repeated).
+ */
+function routePieces(lines, drops, on = []) {
+  const passes = dropPasses(lines, drops);
+  const events = [
+    ...passes.map((index) => ({ index, toggle: true })),
+    ...on.map((o) => ({ index: o.index, summit: o.ref })),
+  ].sort((a, b) => a.index - b.index);
+  const legs = legsAt(lines, events.map((e) => e.index));
+  let mode = passes.length ? 'cycle' : 'walk';
+  const out = [], stretches = [];
+  legs.forEach((leg, k) => {
+    out.push({ mode, leg });
+    stretches.push({ mode, leg });
+    const e = events[k];
+    if (e?.summit) out.push({ summit: e.summit });
+    if (e?.toggle) mode = mode === 'cycle' ? 'walk' : 'cycle';
+  });
+  if (oneWayKm(lines) != null) {
+    for (const s of stretches.reverse()) out.push({ mode: s.mode, leg: reverse(s.leg) });
+  }
+  return out;
+}
+
+/**
+ * Walking and cycling minutes for a whole route (there and back if it's one-way).
+ * Without bike drops it's all walking, as routeWalkMinutes.
+ * @returns {{ walk: number, cycle: number }}
+ */
+export function routeTimes(lines, drops, walkParams, rideParams) {
+  let walk = 0, cycle = 0;
+  for (const p of routePieces(lines, drops)) {
+    if (!p.leg) continue;
+    if (p.mode === 'cycle') cycle += walkMinutes(p.leg, rideParams);
+    else walk += walkMinutes(p.leg, walkParams);
+  }
+  return { walk, cycle };
+}
+
+/** Stages for a route with bike drops: cycle and walk stretches around each summit. */
+function bikeStages(route, lines, on, offTrack, walkParams, rideParams, name) {
+  const stages = [];
+  const activate = (ref) => stages.push({ id: newId(), type: 'activate', label: '', minutes: STAGE_TYPES.activate.minutes, summit: ref });
+
+  // Join stretches of the same mode that no summit separates; skip slivers.
+  const groups = [];
+  for (const p of routePieces(lines, route.bikeDrops, on)) {
+    if (p.leg && p.leg.distanceKm < 0.05) continue;
+    const last = groups.at(-1);
+    if (p.leg && last?.leg && last.mode === p.mode) last.leg = plus(last.leg, p.leg);
+    else groups.push(p.leg ? { ...p } : p);
+  }
+
+  const n = on.length;
+  const oneWay = oneWayKm(lines) != null;
+  let done = 0; // summits activated so far
+  groups.forEach((g, i) => {
+    if (g.summit) {
+      activate(g.summit);
+      if (++done === n) offTrack.forEach(activate);
+      return;
+    }
+    const next = groups[i + 1];
+    let label;
+    if (g.mode === 'cycle') {
+      label = done === 0 ? 'Cycle in' : done < n ? 'Cycle on' : 'Cycle out';
+    } else if (next?.mode === 'cycle') {
+      label = done === 0 ? 'Walk' : 'Walk back to the bike';
+    } else if (done === 0) {
+      label = 'Walk in';
+    } else if (done < n) {
+      label = `Walk to ${name(on[done].ref)}`;
+    } else {
+      label = oneWay ? 'Walk back' : 'Walk out';
+    }
+    const minutes = round5(walkMinutes(g.leg, g.mode === 'cycle' ? rideParams : walkParams));
+    stages.push({ id: newId(), type: g.mode, label, minutes, route: route.id });
+  });
+  if (!n) offTrack.forEach(activate);
   return { stages, offTrack, oneWayKm: oneWayKm(lines) };
 }

@@ -36,7 +36,8 @@ delete. Change save behaviour there, not in one backend only.
 - `normalizeTrip` upgrades the old single-route format; `server/api.js` migrates `data/routes/` on start.
   Keep stored-data changes backwards compatible: real trips already live on GitHub.
 - Route colours and numbers (P1, P2…) come from route order via `routeInfo`.
-- A route may have `terrain` (easy/moderate/rough) and `company` (fraser/others; absent = solo) for walk estimates.
+- A route may have `terrain` (easy/moderate/rough) and `company` (fraser/others; absent = solo) for walk estimates,
+  and `bikeDrops` ([{lat, lon}] on its track): `plan.js` then plans cycle and walk stages (`dropPasses`, `routeTimes`).
 
 ## Walking pace and planning
 

@@ -6,8 +6,8 @@
     getSummits, getHills, getTrip, getIndex, getGpxText, photoUrl, parseLatLon, googleMapsPlaceUrl,
     createTrip, saveTrip, deleteTrip, getStatus, getPace,
   } from '../lib/store.js';
-  import { paceFor, statsMinutes, round5, TERRAINS, DEFAULT_TERRAIN, COMPANY, DEFAULT_COMPANY } from '../lib/pace.js';
-  import { walkStages, routeWalkMinutes, oneWayKm } from '../lib/plan.js';
+  import { paceFor, ridePaceFor, statsMinutes, round5, nearestPoint, TERRAINS, DEFAULT_TERRAIN, COMPANY, DEFAULT_COMPANY } from '../lib/pace.js';
+  import { walkStages, routeWalkMinutes, routeTimes, oneWayKm } from '../lib/plan.js';
   import { fmtDuration } from '../lib/time.js';
   import { driveTime } from '../lib/routing.js';
   import { loadHome } from '../lib/home.js';
@@ -41,6 +41,7 @@
   let addingHeights = $state(null); // route id while its heights are being looked up
   let saving = $state(false);
   let pickParking = $state(false);
+  let pickDrop = $state(null);     // route id while choosing a bike drop on the map
   let dirty = $state(false);
   let initial = '';
   let mapEl;
@@ -135,11 +136,17 @@
     return stages.some((st) => stageRouteId(st, trip) === r.id);
   }
 
-  /** This route's walk stages, in order. */
-  function routeWalks(r) {
-    return trip.timetable.stages.filter((st) => st.type === 'walk' &&
-      (trip.routes.length === 1 ? !st.route || st.route === r.id : stageRouteId(st, trip) === r.id));
+  /** Does this timetable stage belong to route r? */
+  function belongs(r, st) {
+    return trip.routes.length === 1 ? !st.route || st.route === r.id : stageRouteId(st, trip) === r.id;
   }
+
+  /** This route's walk and cycle stages, in order. */
+  function routeMoves(r) {
+    return trip.timetable.stages.filter((st) => (st.type === 'walk' || st.type === 'cycle') && belongs(r, st));
+  }
+
+  const hasDrops = (r) => !!r.bikeDrops?.length;
 
   /** Estimated walking time for a route from its GPX (there and back if it's one-way) and your pace. */
   function estimateFor(r) {
@@ -147,6 +154,11 @@
     if (!st) return null;
     const p = paceFor(pace, r.terrain, r.company);
     const l = lines[r.id];
+    if (l?.length && hasDrops(r)) {
+      const rp = ridePaceFor(pace, r.company);
+      const t = routeTimes(l, r.bikeDrops, p.params, rp.params);
+      return { minutes: round5(t.walk), cycleMinutes: round5(t.cycle), basis: p.basis, rideBasis: rp.basis, oneWayKm: oneWayKm(l) };
+    }
     const minutes = l?.length ? routeWalkMinutes(l, p.params) : statsMinutes(st, p.params);
     return { minutes: round5(minutes), basis: p.basis, oneWayKm: l?.length ? oneWayKm(l) : null };
   }
@@ -175,7 +187,9 @@
     const others = trip.routes.filter((x) => x !== r);
     linkFirstRoute(others[0]);
     const p = paceFor(pace, r.terrain, r.company);
-    const { stages, offTrack, oneWayKm: away } = walkStages(r, lines[r.id], p.params, summitsData.byRef);
+    const rp = ridePaceFor(pace, r.company);
+    const { stages, offTrack, oneWayKm: away } = walkStages(r, lines[r.id], p.params, summitsData.byRef, rp.params);
+    if (hasDrops(r)) notes.push(`cycling uses ${rp.basis}`);
     if (offTrack.length) notes.push(`${offTrack.join(', ')} isn't on the GPX track: check where its activation goes`);
     if (away != null) notes.push(`the GPX ends ${away} km from its start, so the walk back follows it in reverse`);
     const home = loadHome();
@@ -207,19 +221,55 @@
       (kept.length ? ` ${kept.map((n) => n[0].toUpperCase() + n.slice(1)).join('. ')}.` : '');
   }
 
-  /** Update this route's walk times from its GPX and your pace, keeping everything else. */
+  /**
+   * Update this route's walk (and cycle) times from its GPX and your pace, keeping
+   * everything else. If the GPX or bike drops now split the route differently, its
+   * walk, cycle and activate stages are rebuilt (activation times you set are kept).
+   */
   async function reestimate(r) {
     const p = paceFor(pace, r.terrain, r.company);
-    const fresh = walkStages(r, lines[r.id], p.params, summitsData.byRef).stages.filter((st) => st.type === 'walk');
-    const mine = routeWalks(r);
+    const rp = ridePaceFor(pace, r.company);
+    const fresh = walkStages(r, lines[r.id], p.params, summitsData.byRef, rp.params).stages;
+    const moves = fresh.filter((st) => st.type === 'walk' || st.type === 'cycle');
+    const mine = routeMoves(r);
+    const basis = hasDrops(r) ? `${p.basis} and ${rp.basis}` : p.basis;
+    const list = moves.map((f) => `${f.label} ${fmtDuration(f.minutes)}`).join(', ');
     if (!mine.length) {
       notice = (await planRoute(r)) ?? 'Nothing to update.';
-    } else if (mine.length !== fresh.length) {
-      notice = `This route has ${mine.length} walk stage(s) but the GPX splits into ${fresh.length} (${fresh.map((f) => `${f.label} ${fmtDuration(f.minutes)}`).join(', ')}). Times weren't changed: adjust them by hand.`;
+    } else if (mine.length === moves.length && mine.every((st, i) => st.type === moves[i].type)) {
+      mine.forEach((st, i) => (st.minutes = moves[i].minutes));
+      notice = `Times updated using ${basis}: ${list}.`;
     } else {
-      mine.forEach((st, i) => (st.minutes = fresh[i].minutes));
-      notice = `Walk times updated using ${p.basis}: ${fresh.map((f) => `${f.label} ${fmtDuration(f.minutes)}`).join(', ')}.`;
+      const tt = trip.timetable.stages;
+      const old = tt.filter((st) => ['walk', 'cycle', 'activate'].includes(st.type) && belongs(r, st));
+      const kept = new Map(old.filter((st) => st.type === 'activate').map((st) => [st.summit, st]));
+      const at = tt.indexOf(old[0]);
+      const rest = (from, to) => tt.slice(from, to).filter((st) => !old.includes(st));
+      trip.timetable.stages = [
+        ...rest(0, at),
+        ...fresh.map((st) => (st.type === 'activate' && kept.has(st.summit) ? kept.get(st.summit) : st)),
+        ...rest(at),
+      ];
+      notice = `This route's walking${hasDrops(r) ? ', cycling' : ''} and activation stages were rebuilt to match the GPX` +
+        `${hasDrops(r) ? ' and bike drops' : ''}, using ${basis}: ${list}. Other stages were kept.`;
     }
+  }
+
+  // ---- bike drops: where you leave the bike, on the route's track
+  function addDrop(r, ll) {
+    const l = lines[r.id];
+    if (!l?.length) return;
+    const near = nearestPoint(l, { lat: ll.lat, lon: ll.lng ?? ll.lon });
+    if (near.distanceM > 300) { error = 'Click on the route\'s GPX track to place a bike drop.'; return; }
+    const p = l.flat()[near.index];
+    error = '';
+    r.bikeDrops = [...(r.bikeDrops ?? []), { lat: round6(p.lat), lon: round6(p.lon) }];
+    notice = 'Bike drop added. Use "Re-estimate walk times" to put the cycling in the timetable.';
+  }
+
+  function removeDrop(r, i) {
+    r.bikeDrops = r.bikeDrops.filter((_, k) => k !== i);
+    if (!r.bikeDrops.length) delete r.bikeDrops;
   }
 
   /** "Fill in a typical day": plan every route in order. */
@@ -261,6 +311,7 @@
       const r = addRoute({
         name: from.name, parking: from.parking ? { ...from.parking } : null,
         summits: [...from.summits], hills: [...from.hills],
+        ...(from.bikeDrops?.length ? { bikeDrops: from.bikeDrops.map((d) => ({ ...d })) } : {}),
       });
       if (from.gpx) {
         const text = await getGpxText(tripId, from.gpx);
@@ -600,6 +651,20 @@
         });
         overlay.addLayer(m);
       }
+      (r.bikeDrops ?? []).forEach((d, i) => {
+        const label = r.bikeDrops.length > 1 ? `Bike drop ${i + 1}` : 'Bike drop';
+        const m = L.marker([d.lat, d.lon], {
+          draggable: true,
+          icon: L.divIcon({ className: 'parking-wrap', html: `<div class="bike-icon" style="border-color:${ri.color}">🚲</div>`, iconSize: [24, 24] }),
+        }).bindTooltip(`${multi ? `${ri.number}: ` : ''}${label} (drag to move)`);
+        m.on('dragend', () => {
+          const ll = m.getLatLng();
+          const near = nearestPoint(lines[r.id] ?? [], { lat: ll.lat, lon: ll.lng });
+          const p = (lines[r.id] ?? []).flat()[near.index];
+          r.bikeDrops = r.bikeDrops.map((x, k) => (k === i && p ? { lat: round6(p.lat), lon: round6(p.lon) } : x));
+        });
+        overlay.addLayer(m);
+      });
     }
   });
 
@@ -655,7 +720,7 @@
   });
 
   $effect(() => {
-    if (mapEl) mapEl.style.cursor = pickParking ? 'crosshair' : '';
+    if (mapEl) mapEl.style.cursor = pickParking || pickDrop ? 'crosshair' : '';
   });
 
   onMount(() => {
@@ -665,6 +730,12 @@
     map = created.map;
     sizeSummitsOnZoom(map);
     map.on('click', (e) => {
+      if (pickDrop) {
+        const r = trip?.routes.find((x) => x.id === pickDrop);
+        pickDrop = null;
+        if (r) addDrop(r, e.latlng);
+        return;
+      }
       if (!pickParking || !active) return;
       setParking(active, { lat: round6(e.latlng.lat), lon: round6(e.latlng.lng) });
       pickParking = false;
@@ -851,16 +922,30 @@
                       onchange={(e) => { const v = e.currentTarget.value; if (v === DEFAULT_COMPANY) delete r.company; else r.company = v; }}>
                 {#each Object.entries(COMPANY) as [key, label]}<option value={key}>{label}</option>{/each}
               </select>
-              {#if est}<span>Walking about <strong>{fmtDuration(est.minutes)}</strong> <span class="muted">({est.basis}{est.oneWayKm != null ? ', there and back' : ''})</span></span>{/if}
+              {#if est}<span>Walking about <strong>{fmtDuration(est.minutes)}</strong>{#if est.cycleMinutes != null}, cycling <strong>{fmtDuration(est.cycleMinutes)}</strong>{/if}
+                <span class="muted">({est.basis}{est.rideBasis ? `; ${est.rideBasis}` : ''}{est.oneWayKm != null ? ', there and back' : ''})</span></span>{/if}
               {#if lines[r.id]?.length && !hasElevation(lines[r.id])}
                 <button class="small" onclick={() => addHeights(r)} disabled={addingHeights === r.id}
                         title="This GPX has no heights. Look them up from terrain data so ascent and walk times are right">
                   {addingHeights === r.id ? 'Adding heights…' : 'Add heights'}</button>
               {/if}
               {#if lines[r.id]?.length}
-                <button class="small" onclick={() => reestimate(r)} title="Work out this route's walk stages again from the GPX and your pace">Re-estimate walk times</button>
+                <button class="small" onclick={() => reestimate(r)} title="Work out this route's walk (and cycle) stages again from the GPX and your pace">Re-estimate walk times</button>
               {/if}
             </div>
+            {#if lines[r.id]?.length}
+              <div class="row small bike-drops">
+                <span>Bike drops:</span>
+                {#each r.bikeDrops ?? [] as d, i}
+                  <span class="chip">🚲 {r.bikeDrops.length > 1 ? i + 1 : ''}
+                    <button class="small icon" onclick={() => removeDrop(r, i)} aria-label="Remove bike drop">✕</button></span>
+                {/each}
+                <button class="small" class:primary={pickDrop === r.id}
+                        onclick={() => { activeId = r.id; pickParking = false; pickDrop = pickDrop === r.id ? null : r.id; }}>
+                  {pickDrop === r.id ? 'Click the track…' : '+ Bike drop'}</button>
+                {#if !r.bikeDrops?.length}<span class="muted">Cycling in? Add where you'll leave the bike: the timetable then has cycle stages.</span>{/if}
+              </div>
+            {/if}
             <div class="row">
               <label class="button file small">
                 {lines[r.id]?.length ? 'Replace GPX…' : 'Choose GPX…'}
@@ -874,7 +959,7 @@
               <input class="grow tabular" bind:value={parkingText[r.id]} onchange={() => parkingFromText(r)}
                      placeholder='Paste "lat, lon" or a Google Maps link' aria-label="Parking coordinates" />
               <button class="small" class:primary={pickParking && r.id === active?.id}
-                      onclick={() => { activeId = r.id; pickParking = !pickParking; }}>
+                      onclick={() => { activeId = r.id; pickDrop = null; pickParking = !pickParking; }}>
                 {pickParking && r.id === active?.id ? 'Click the map…' : 'Pick on map'}
               </button>
               {#if lines[r.id]?.length}<button class="small" onclick={() => parkingFromGpx(r)}>Use GPX start</button>{/if}
@@ -981,6 +1066,7 @@
           {/each}
         </div>
       {/if}
+      {#if pickDrop}<p class="small">Click the route's track where you'll leave the bike.</p>{/if}
       {#if pickParking}<p class="small">Click the map to set the parking spot{multi ? ` for route ${info.get(active?.id)?.number}` : ''}.</p>{/if}
     </div>
   </div>
@@ -1009,6 +1095,7 @@
   .stat { margin: 0; }
   .park-label { margin-top: 0.2rem; }
   .terrain { margin: 0.3rem 0 0.5rem; }
+  .bike-drops { margin: 0 0 0.5rem; align-items: center; }
   label.inline { display: inline; margin: 0; }
   .chip-link { font-size: 0.75em; margin-left: 0.15em; text-decoration: none; }
   .chip-link:hover { text-decoration: underline; }
