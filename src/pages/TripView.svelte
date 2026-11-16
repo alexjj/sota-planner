@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import L from 'leaflet';
-  import { createMap, summitMarker, hillMarker, parkingMarker, trackLayer, esc, summitLinks, sizeSummitsOnZoom } from '../lib/map.js';
+  import { createMap, summitMarker, hillMarker, parkingMarker, trackLayer, esc, summitLinks, sizeSummitsOnZoom, mapZoom } from '../lib/map.js';
   import { getSummits, getHills, getTrip, getGpxText, gpxUrl, photoUrl, googleMapsUrl, getPace } from '../lib/store.js';
   import { paceFor, statsMinutes, round5, TERRAINS } from '../lib/pace.js';
   import { parseGpx } from '../lib/gpx.js';
@@ -46,8 +46,8 @@
   function focusRoute(rid) {
     const layer = trackLayers.get(rid);
     const r = trip.routes.find((x) => x.id === rid);
-    if (layer) map.fitBounds(layer.getBounds(), { padding: [40, 40], maxZoom: 14 });
-    else if (r?.parking) map.setView([r.parking.lat, r.parking.lon], 13);
+    if (layer) map.fitBounds(layer.getBounds(), { padding: [40, 40], maxZoom: mapZoom(map, 14) });
+    else if (r?.parking) map.setView([r.parking.lat, r.parking.lon], mapZoom(map, 13, r.parking.lat));
   }
 
   function highlight(rid) {
@@ -116,7 +116,7 @@
           bounds.extend([h.lat, h.lon]);
         }
       }
-      if (bounds.isValid()) map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
+      if (bounds.isValid()) map.fitBounds(bounds, { padding: [40, 40], maxZoom: mapZoom(map, 14) });
     })();
     return () => map.remove();
   });

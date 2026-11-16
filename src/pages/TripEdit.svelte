@@ -1,7 +1,7 @@
 <script>
   import { onMount, tick } from 'svelte';
   import L from 'leaflet';
-  import { createMap, summitMarker, hillMarker, parkingMarker, trackLayer, esc, summitLinks, hillLinks, sizeSummitsOnZoom } from '../lib/map.js';
+  import { createMap, summitMarker, hillMarker, parkingMarker, trackLayer, esc, summitLinks, hillLinks, sizeSummitsOnZoom, mapZoom } from '../lib/map.js';
   import {
     getSummits, getHills, getTrip, getIndex, getGpxText, photoUrl, parseLatLon, googleMapsPlaceUrl,
     createTrip, saveTrip, deleteTrip, getStatus, getPace,
@@ -507,7 +507,7 @@
       for (const ref of r.summits) { const s = summit(ref); if (s.lat != null) b.extend([s.lat, s.lon]); }
       if (r.parking) b.extend([r.parking.lat, r.parking.lon]);
     }
-    if (b.isValid()) map.fitBounds(b, { padding: [40, 40], maxZoom: 14 });
+    if (b.isValid()) map.fitBounds(b, { padding: [40, 40], maxZoom: mapZoom(map, 14) });
   }
 
   $effect(() => {

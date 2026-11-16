@@ -5,12 +5,21 @@
 //   https://<worker>/repos/<owner>/<repo>/...      -> https://api.github.com/repos/<owner>/<repo>/...
 //   https://<worker>/raw/<owner>/<repo>/<branch>/… -> https://raw.githubusercontent.com/<owner>/<repo>/<branch>/…
 //
+// It also serves Ordnance Survey Leisure map tiles (1:25k/1:50k) with the OS API key
+// added here, so the key never appears in the public site:
+//
+//   https://<worker>/os/<z>/<x>/<y>.png             -> https://api.os.uk/maps/raster/v1/zxy/Leisure_27700/<z>/<x>/<y>.png
+//
 // Variables (Worker settings → Variables and Secrets):
 //   ALLOWED_REPOS    comma-separated "owner/repo" list, e.g. "alexjj/sota-planner"
 //   ALLOWED_ORIGINS  comma-separated site origins, e.g. "https://alexjj.github.io,http://localhost:5173"
+//   OS_API_KEY       (Secret) OS Data Hub project key with the OS Maps API; only needed for /os/
 //
 // It keeps nothing: your token travels with each request, as it would to GitHub.
 // Only requests for the allowed repos are passed on, so it isn't an open proxy.
+// Map tiles are only served to pages on ALLOWED_ORIGINS (checked from the Referer
+// browsers send with tile images). That stops other sites using your OS key, though
+// not someone who fakes the header on purpose.
 
 const PASS_HEADERS = ['authorization', 'accept', 'content-type', 'x-github-api-version'];
 
@@ -26,6 +35,30 @@ function cors(origin) {
   };
 }
 
+const OS_TILES = 'https://api.os.uk/maps/raster/v1/zxy/Leisure_27700';
+const OS_MAX_ZOOM = 9; // deepest Leisure_27700 level
+
+async function osTile(request, env, origins, path) {
+  if (request.method !== 'GET' && request.method !== 'HEAD') return reply(405, 'Tiles are GET only.');
+  const m = /^\/os\/(\d+)\/(\d+)\/(\d+)\.png$/.exec(path);
+  if (!m || Number(m[1]) > OS_MAX_ZOOM) return reply(404, 'Not a map tile.');
+  if (!env.OS_API_KEY) return reply(500, 'Relay not set up for OS maps: set OS_API_KEY.');
+  // Tile <img> requests don't send Origin, but browsers send the page's origin as Referer.
+  let from = request.headers.get('Origin');
+  if (!from) {
+    try { from = new URL(request.headers.get('Referer')).origin; } catch { from = null; }
+  }
+  if (!from || !origins.includes(from)) return reply(403, 'Map tiles are only served to the trip planner.');
+
+  const upstream = await fetch(`${OS_TILES}/${m[1]}/${m[2]}/${m[3]}.png?key=${encodeURIComponent(env.OS_API_KEY)}`);
+  const out = new Headers({ 'Content-Type': upstream.headers.get('content-type') ?? 'image/png' });
+  // Let browsers keep tiles for a week: each tile they fetch again counts against the OS allowance.
+  out.set('Cache-Control', upstream.ok ? 'public, max-age=604800' : 'no-store');
+  out.set('Access-Control-Allow-Origin', from);
+  out.set('Vary', 'Origin, Referer');
+  return new Response(upstream.ok ? upstream.body : null, { status: upstream.status, headers: out });
+}
+
 function reply(status, message, headers = {}) {
   return new Response(JSON.stringify({ message }), {
     status, headers: { 'Content-Type': 'application/json', ...headers },
@@ -39,6 +72,7 @@ export default {
     const origins = list(env.ALLOWED_ORIGINS);
     const repos = list(env.ALLOWED_REPOS).map((r) => r.toLowerCase());
 
+    if (url.pathname.startsWith('/os/')) return osTile(request, env, origins, url.pathname);
     if (!repos.length) return reply(500, 'Relay not set up: set ALLOWED_REPOS.');
     // Browsers send Origin on these cross-site requests; <img> loads of photos don't, so allow those.
     if (origin && !origins.includes(origin)) return reply(403, `Origin ${origin} is not in ALLOWED_ORIGINS.`);

@@ -183,6 +183,24 @@ If the network also blocks `*.workers.dev`, add a custom domain to the Worker
 To deploy from the command line instead of the dashboard, edit `relay/wrangler.toml`, then run
 `npx wrangler deploy` in `relay/`.
 
+### OS Leisure maps (1:25k / 1:50k)
+
+The map can show Ordnance Survey Leisure mapping (Landranger 1:50,000 and Explorer 1:25,000)
+through the same Worker, which adds your OS API key so it never appears in the public site.
+
+1. At <https://osdatahub.os.uk>, create a project with the **OS Maps API** and copy its key.
+   The detailed Leisure zoom levels are Premium data: they count against your plan's free
+   monthly allowance, and beyond it you pay.
+2. In the Worker's **Settings → Variables and Secrets**, add a **Secret** named `OS_API_KEY` with that key.
+   Make sure `ALLOWED_ORIGINS` lists every address the site is used from (including
+   `http://localhost:5173` for `npm run edit`). Tiles are only served to those pages.
+3. Deploy the Worker with the current `relay/worker.js`.
+4. Put the Worker's address in `.env` as `VITE_OS_TILES=https://sota-relay.<you>.workers.dev`,
+   commit and push. The next deploy adds **OS Leisure (1:25k/1:50k)** to the map's layer menu.
+
+OS tiles only come in British National Grid, so the map switches projection when you pick that
+layer. Browsers keep tiles for a week to save on OS requests.
+
 ## Editing from your own server (behind Caddy)
 
 GitHub mode is usually simpler. If you'd rather run the editor on a server:

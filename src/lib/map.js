@@ -1,29 +1,113 @@
 import L from 'leaflet';
+import proj4 from 'proj4';
 
 const BASE_KEY = 'sota-trip-base-layer';
 
+// Ordnance Survey Leisure maps (Landranger 1:50k / Explorer 1:25k), served through
+// the relay Worker (relay/worker.js), which adds the OS API key. Set VITE_OS_TILES
+// in .env to the Worker address to turn the layer on.
+const OS_TILES = (import.meta.env.VITE_OS_TILES ?? '').trim().replace(/\/+$/, '');
+const OS_NAME = 'OS Leisure (1:25k/1:50k)';
+
+// OS tiles only come in British National Grid (EPSG:27700), so the map switches
+// CRS when that layer is picked. Grid from the OS Maps API docs.
+proj4.defs('EPSG:27700', '+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 '
+  + '+ellps=airy +towgs84=446.448,-125.157,542.06,0.15,0.247,0.842,-20.489 +units=m +no_defs');
+const toBng = proj4('EPSG:4326', 'EPSG:27700');
+const OS_RES0 = 896; // metres per pixel at zoom 0, halving each level
+const OS_ORIGIN = [-238375, 1376256];
+export const OSGB = L.extend({}, L.CRS.Earth, {
+  code: 'EPSG:27700',
+  projection: {
+    bounds: L.bounds([-238375, 0], [900000, 1376256]),
+    project: (ll) => L.point(toBng.forward([ll.lng, ll.lat])),
+    unproject: (p) => { const [lng, lat] = toBng.inverse([p.x, p.y]); return L.latLng(lat, lng); },
+  },
+  transformation: new L.Transformation(1, -OS_ORIGIN[0], -1, OS_ORIGIN[1]),
+  scale: (z) => 2 ** z / OS_RES0,
+  zoom: (s) => Math.log2(s * OS_RES0),
+  wrapLng: undefined,
+  infinite: false,
+});
+
+/** Web Mercator zoom minus this map CRS's zoom for the same ground scale at `lat`. */
+function zoomShift(crs, lat) {
+  if (crs !== OSGB) return 0;
+  return Math.log2((2 * Math.PI * 6378137 * Math.cos(lat * Math.PI / 180)) / 256 / OS_RES0);
+}
+
+/** The map's zoom as a Web Mercator (OpenTopoMap) zoom, whichever base layer is showing. */
+export function webZoom(map, zoom = map.getZoom()) {
+  return zoom + zoomShift(map.options.crs, map.getCenter().lat);
+}
+
+/** A Web Mercator zoom (like 13) as a zoom for this map's current CRS. */
+export function mapZoom(map, zoom, lat = map.getCenter().lat) {
+  return Math.round(zoom - zoomShift(map.options.crs, lat));
+}
+
+/** Switch the map to `crs` (when a base layer needs it), keeping the same place and scale. */
+function useCrs(map, crs, layer) {
+  if (map.options.crs === crs) return;
+  // A layer's own maxZoom has to suit every CRS, or the layer menu greys it out at
+  // zooms that only make sense in another one, so the limit for this CRS goes on the map.
+  const setCrs = () => { map.options.crs = crs; map.options.maxZoom = layer.options.crsMaxZoom; };
+  if (!map._loaded) { setCrs(); return; }
+  // Finish any zoom or pan animation first, or it lands in the new CRS at the old zoom.
+  // (Not map.stop(): that can start a zoom of its own.)
+  if (map._animatingZoom) map._onZoomTransitionEnd();
+  map._stop();
+  const center = map.getCenter();
+  const zoom = webZoom(map);
+  setCrs();
+  const max = layer.options.crsMaxZoom ?? layer.options.maxZoom;
+  const z = Math.min(Math.max(mapZoom(map, zoom, center.lat), layer.options.minZoom ?? 0), max);
+  map._resetView(center, z);
+  map.fire('zoomlevelschange');
+  map.fire('zoomend'); // re-size summit dots even if the zoom number didn't change
+}
+
+/** A tile layer that puts the map into `crs` before it's added. */
+function baseLayer(crs, url, options) {
+  const layer = L.tileLayer(url, options);
+  const own = layer.beforeAdd; // GridLayer's: registers the layer's zoom limits
+  layer.beforeAdd = function (map) {
+    useCrs(map, crs, layer);
+    return own.call(this, map);
+  };
+  return layer;
+}
+
 /** A Leaflet map with OpenTopoMap and a couple of alternative base layers. */
 export function createMap(el, { view } = {}) {
+  const web = L.CRS.EPSG3857;
   const bases = {
-    OpenTopoMap: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+    OpenTopoMap: baseLayer(web, 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
       subdomains: 'abc', maxNativeZoom: 17, maxZoom: 18,
       attribution: 'Map data © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, SRTM | Style © <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)',
     }),
-    OpenStreetMap: L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    OpenStreetMap: baseLayer(web, 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19, attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     }),
-    Satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    Satellite: baseLayer(web, 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
       maxZoom: 19, attribution: 'Imagery © Esri, Maxar, Earthstar Geographics',
     }),
   };
+  if (OS_TILES) {
+    bases[OS_NAME] = baseLayer(OSGB, `${OS_TILES}/os/{z}/{x}/{y}.png`, {
+      minZoom: 0, maxNativeZoom: 9, maxZoom: 19, crsMaxZoom: 11,
+      bounds: [[49.5, -9], [61.2, 2.5]],
+      attribution: 'Contains OS data © Crown copyright and database rights ' + new Date().getFullYear(),
+    });
+  }
   let baseName = 'OpenTopoMap';
   try { baseName = localStorage.getItem(BASE_KEY) ?? baseName; } catch {}
-  const map = L.map(el, {
-    preferCanvas: true,
-    layers: [bases[baseName] ?? bases.OpenTopoMap],
-  });
-  if (view) map.setView(view.center, view.zoom);
-  else map.setView([56.9, -4.6], 7);
+  const base = bases[baseName] ?? bases.OpenTopoMap;
+  const crs = base === bases[OS_NAME] ? OSGB : web;
+  const map = L.map(el, { preferCanvas: true, crs, maxZoom: base.options.crsMaxZoom, layers: [base] });
+  // Views are kept as Web Mercator zooms, so they mean the same on every base layer.
+  const [center, zoom] = view ? [view.center, view.zoom] : [[56.9, -4.6], 7];
+  map.setView(center, mapZoom(map, zoom, L.latLng(center).lat));
   const control = L.control.layers(bases, {}, { collapsed: true }).addTo(map);
   L.control.scale({ imperial: false }).addTo(map);
   map.on('baselayerchange', (e) => {
@@ -97,9 +181,9 @@ export function sizeSummitsOnZoom(map) {
     if (l.options?.summitDot) sizeSummitMarker(l, z);
     else if (l.options?.ring) sizeHillRing(l, z);
   };
-  map.on('layeradd', (e) => size(e.layer, map.getZoom()));
+  map.on('layeradd', (e) => size(e.layer, webZoom(map)));
   map.on('zoomend', () => {
-    const z = map.getZoom();
+    const z = webZoom(map);
     map.eachLayer((l) => size(l, z));
   });
 }

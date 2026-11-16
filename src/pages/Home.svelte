@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import L from 'leaflet';
-  import { createMap, summitMarker, hillMarker, parkingMarker, trackLayer, esc, summitLinks, hillLinks, COLORS, POINTS_COLORS, sizeSummitsOnZoom } from '../lib/map.js';
+  import { createMap, summitMarker, hillMarker, parkingMarker, trackLayer, esc, summitLinks, hillLinks, COLORS, POINTS_COLORS, sizeSummitsOnZoom, webZoom, mapZoom } from '../lib/map.js';
   import { getSummits, getHills, getIndex, getTrip, saveTrip } from '../lib/store.js';
   import { showFlash } from '../lib/flash.svelte.js';
   import { fmtDuration } from '../lib/time.js';
@@ -110,7 +110,7 @@
     sizeSummitsOnZoom(map); // dots grow as you zoom in, as on sotl.as
     map.on('moveend', () => {
       const c = map.getCenter();
-      try { sessionStorage.setItem(VIEW_KEY, JSON.stringify({ center: [c.lat, c.lng], zoom: map.getZoom() })); } catch {}
+      try { sessionStorage.setItem(VIEW_KEY, JSON.stringify({ center: [c.lat, c.lng], zoom: webZoom(map) })); } catch {}
     });
 
     (async () => {
@@ -209,7 +209,7 @@
     if (layer) map.fitBounds(layer.getBounds(), { padding: [30, 30] });
     else {
       const p = r.routes.find((x) => x.parking)?.parking;
-      if (p) map.setView([p.lat, p.lon], 13);
+      if (p) map.setView([p.lat, p.lon], mapZoom(map, 13, p.lat));
     }
   }
 </script>
