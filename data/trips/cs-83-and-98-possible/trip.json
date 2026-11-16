@@ -3,21 +3,114 @@
     {
       "id": "ryivhqp",
       "name": "",
-      "gpx": null,
-      "stats": null,
-      "parking": null,
+      "gpx": "ryivhqp.gpx",
+      "stats": {
+        "distanceKm": 24.58,
+        "ascentM": 683,
+        "descentM": 688,
+        "maxEleM": 776,
+        "start": {
+          "lat": 56.830618,
+          "lon": -4.221436
+        }
+      },
+      "parking": {
+        "label": "Start of GPX route",
+        "lat": 56.830618,
+        "lon": -4.221436
+      },
       "summits": [
         "GM/CS-083",
         "GM/CS-098"
       ],
-      "hills": []
+      "hills": [],
+      "drawn": {
+        "points": [
+          {
+            "lat": 56.830634,
+            "lon": -4.221507
+          },
+          {
+            "lat": 56.803986,
+            "lon": -4.227891
+          },
+          {
+            "lat": 56.823683,
+            "lon": -4.221979
+          },
+          {
+            "lat": 56.779941,
+            "lon": -4.252095
+          },
+          {
+            "lat": 56.772817,
+            "lon": -4.252481
+          },
+          {
+            "lat": 56.766679,
+            "lon": -4.251323
+          },
+          {
+            "lat": 56.761763,
+            "lon": -4.248405
+          },
+          {
+            "lat": 56.756705,
+            "lon": -4.234757
+          },
+          {
+            "lat": 56.761998,
+            "lon": -4.24819
+          },
+          {
+            "lat": 56.766726,
+            "lon": -4.250979
+          },
+          {
+            "lat": 56.772818,
+            "lon": -4.252374
+          },
+          {
+            "lat": 56.779924,
+            "lon": -4.25202
+          },
+          {
+            "lat": 56.830566,
+            "lon": -4.221534
+          }
+        ],
+        "modes": [
+          "path",
+          "path",
+          "path",
+          "line",
+          "line",
+          "line",
+          "line",
+          "line",
+          "line",
+          "line",
+          "line",
+          "path"
+        ]
+      },
+      "bikeDrops": [
+        {
+          "lat": 56.823699,
+          "lon": -4.221919
+        },
+        {
+          "lat": 56.78001,
+          "lon": -4.252124
+        }
+      ]
     }
   ],
   "name": "CS 83 and 98 possible?",
   "tags": [
     "Long day"
   ],
-  "notes": "Probably much longer as terrain is dire.\n\nI wonder about cycling east side of Loch Garry back and forth and then up and down 83?",
+  "notes": "This should be cycling...",
   "links": [
     {
       "label": "WH Route from Dalnaspidal",
@@ -35,10 +128,18 @@
         "minutes": 145
       },
       {
-        "id": "ax4395",
+        "id": "5fn4j5",
+        "type": "cycle",
+        "label": "Cycle in",
+        "minutes": 5,
+        "route": "ryivhqp"
+      },
+      {
+        "id": "qhoo1j",
         "type": "walk",
         "label": "Walk in",
-        "minutes": 65
+        "minutes": 60,
+        "route": "ryivhqp"
       },
       {
         "id": "6eywiw",
@@ -48,10 +149,25 @@
         "summit": "GM/CS-083"
       },
       {
-        "id": "q3z2mr",
+        "id": "dkbp8l",
+        "type": "walk",
+        "label": "Walk back to the bike",
+        "minutes": 45,
+        "route": "ryivhqp"
+      },
+      {
+        "id": "sfakrp",
+        "type": "cycle",
+        "label": "Cycle on",
+        "minutes": 20,
+        "route": "ryivhqp"
+      },
+      {
+        "id": "pnfv6r",
         "type": "walk",
         "label": "Walk to Creag a'Mhadaidh",
-        "minutes": 120
+        "minutes": 45,
+        "route": "ryivhqp"
       },
       {
         "id": "yu39rh",
@@ -61,10 +177,18 @@
         "summit": "GM/CS-098"
       },
       {
-        "id": "05s2jt",
+        "id": "5qvvha",
         "type": "walk",
-        "label": "Walk out",
-        "minutes": 150
+        "label": "Walk back to the bike",
+        "minutes": 40,
+        "route": "ryivhqp"
+      },
+      {
+        "id": "7molcy",
+        "type": "cycle",
+        "label": "Cycle out",
+        "minutes": 20,
+        "route": "ryivhqp"
       },
       {
         "id": "waujho",
@@ -75,6 +199,6 @@
     ]
   },
   "id": "cs-83-and-98-possible",
-  "updated": "2026-11-11T22:36:21.109Z",
+  "updated": "2026-11-16T22:19:38.066Z",
   "created": "2026-11-11T22:27:55.955Z"
 }
