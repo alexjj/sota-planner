@@ -43,6 +43,7 @@
   let saving = $state(false);
   let pickParking = $state(false);
   let pickDrop = $state(null);     // route id while choosing a bike drop on the map
+  let pickWaypoint = $state(null); // route id while choosing a waypoint on the map
   // Drawing a route on the map: { routeId, points: [{lat, lon}], modes: ['path'|'line'] per stretch, history }
   let draw = $state.raw(null);
   let drawMode = $state('path');   // how the next stretch is drawn
@@ -147,9 +148,19 @@
     return trip.routes.length === 1 ? !st.route || st.route === r.id : stageRouteId(st, trip) === r.id;
   }
 
-  /** This route's walk and cycle stages, in order. */
+  /** A stage the planner makes for a route: walking, cycling, or a stop at a waypoint. */
+  const isMove = (st) => st.type === 'walk' || st.type === 'cycle' || (st.type === 'break' && st.waypoint);
+
+  /** This route's walk, cycle and waypoint stop stages, in order. */
   function routeMoves(r) {
-    return trip.timetable.stages.filter((st) => (st.type === 'walk' || st.type === 'cycle') && belongs(r, st));
+    return trip.timetable.stages.filter((st) => isMove(st) && belongs(r, st));
+  }
+
+  /** Minutes from setting off to each stop on the route (summits, hills, waypoints). */
+  function arrivalsFor(r, l = lines[r.id]) {
+    if (!l?.length || !summitsData || !hillsData) return [];
+    const p = paceFor(pace, r.terrain, r.company);
+    return walkStages(r, l, p.params, summitsData.byRef, ridePaceFor(pace, r.company).params, hillsData.byId).arrivals;
   }
 
   const hasDrops = (r) => !!r.bikeDrops?.length;
@@ -194,7 +205,7 @@
     linkFirstRoute(others[0]);
     const p = paceFor(pace, r.terrain, r.company);
     const rp = ridePaceFor(pace, r.company);
-    const { stages, offTrack, oneWayKm: away } = walkStages(r, lines[r.id], p.params, summitsData.byRef, rp.params);
+    const { stages, offTrack, oneWayKm: away } = walkStages(r, lines[r.id], p.params, summitsData.byRef, rp.params, hillsData.byId);
     if (hasDrops(r)) notes.push(`cycling uses ${rp.basis}`);
     if (offTrack.length) notes.push(`${offTrack.join(', ')} isn't on the GPX track: check where its activation goes`);
     if (away != null) notes.push(`the GPX ends ${away} km from its start, so the walk back follows it in reverse`);
@@ -235,19 +246,22 @@
   async function reestimate(r) {
     const p = paceFor(pace, r.terrain, r.company);
     const rp = ridePaceFor(pace, r.company);
-    const fresh = walkStages(r, lines[r.id], p.params, summitsData.byRef, rp.params).stages;
-    const moves = fresh.filter((st) => st.type === 'walk' || st.type === 'cycle');
+    const fresh = walkStages(r, lines[r.id], p.params, summitsData.byRef, rp.params, hillsData.byId).stages;
+    const moves = fresh.filter(isMove);
     const mine = routeMoves(r);
     const basis = hasDrops(r) ? `${p.basis} and ${rp.basis}` : p.basis;
     const list = moves.map((f) => `${f.label} ${fmtDuration(f.minutes)}`).join(', ');
     if (!mine.length) {
       notice = (await planRoute(r)) ?? 'Nothing to update.';
-    } else if (mine.length === moves.length && mine.every((st, i) => st.type === moves[i].type)) {
-      mine.forEach((st, i) => (st.minutes = moves[i].minutes));
+    } else if (mine.length === moves.length && mine.every((st, i) => st.type === moves[i].type && st.waypoint === moves[i].waypoint)) {
+      mine.forEach((st, i) => {
+        st.minutes = moves[i].minutes;
+        if (st.waypoint) st.label = moves[i].label;
+      });
       notice = `Times updated using ${basis}: ${list}.`;
     } else {
       const tt = trip.timetable.stages;
-      const old = tt.filter((st) => ['walk', 'cycle', 'activate'].includes(st.type) && belongs(r, st));
+      const old = tt.filter((st) => (isMove(st) || st.type === 'activate') && belongs(r, st));
       const kept = new Map(old.filter((st) => st.type === 'activate').map((st) => [st.summit, st]));
       const at = tt.indexOf(old[0]);
       const rest = (from, to) => tt.slice(from, to).filter((st) => !old.includes(st));
@@ -470,6 +484,7 @@
     gpxChanges[r.id] = text;
     lines[r.id] = parsed;
     delete r.drawn; // a drawing that made the old GPX no longer matches
+    const added = addFromTrack(r);
     const st = gpxStats(parsed);
     if (!r.parking && st.start) setParking(r, { ...st.start }, 'Start of GPX route');
     if (!trip.name) trip.name = nice;
@@ -478,12 +493,41 @@
     fitAll();
     planning = true;
     try {
-      notice = [h.note, (await planRoute(r)) ??
+      notice = [h.note, added, (await planRoute(r)) ??
         'GPX loaded. The timetable already has stages for this route, so they were kept: use "Re-estimate walk times" to update them.'].filter(Boolean).join(' ');
     } finally {
       planning = false;
     }
   }
+  /** Add the SOTA summits and hills the route's track goes over. Returns a note, or ''. */
+  function addFromTrack(r) {
+    const found = suggestions[r.id] ?? [];
+    if (!found.length) return '';
+    for (const sg of found) {
+      if (sg.kind === 'summit' && !r.summits.includes(sg.item.ref)) r.summits.push(sg.item.ref);
+      if (sg.kind === 'hill' && !r.hills.includes(sg.item.id)) r.hills.push(sg.item.id);
+    }
+    return `Added ${found.map((sg) => sg.item.name).join(', ')} from the track.`;
+  }
+
+  // ---- waypoints: named points on the track that split the walk (and can be a stop)
+  function addWaypoint(r, ll) {
+    const l = lines[r.id];
+    if (!l?.length) return;
+    const near = nearestPoint(l, { lat: ll.lat, lon: ll.lng ?? ll.lon });
+    if (near.distanceM > 300) { error = 'Click on the route\'s GPX track to place a waypoint.'; return; }
+    const p = l.flat()[near.index];
+    error = '';
+    const n = (r.waypoints?.length ?? 0) + 1;
+    r.waypoints = [...(r.waypoints ?? []), { id: newId('w'), label: `Waypoint ${n}`, minutes: 0, lat: round6(p.lat), lon: round6(p.lon) }];
+    notice = 'Waypoint added: give it a name, and minutes if you\'ll stop there. Use "Re-estimate walk times" to put it in the timetable.';
+  }
+
+  function removeWaypoint(r, w) {
+    r.waypoints = r.waypoints.filter((x) => x !== w);
+    if (!r.waypoints.length) delete r.waypoints;
+  }
+
   function removeGpx(r) {
     gpxChanges[r.id] = null;
     lines[r.id] = [];
@@ -513,6 +557,7 @@
     if (lines[r.id]?.length && !r.drawn &&
         !confirm('Drawing a route replaces this route\'s GPX when you click Done. Carry on?')) return;
     pickDrop = null;
+    pickWaypoint = null;
     pickParking = false;
     activeId = r.id;
     const d = r.drawn;
@@ -549,6 +594,16 @@
   function drawUndo() {
     const prev = draw.history.at(-1);
     if (prev) draw = { ...draw, ...prev, history: draw.history.slice(0, -1) };
+  }
+
+  /** A summit or hill clicked while drawing becomes one of the route's stops. */
+  function markStopAt(r, ll) {
+    if (!r) return;
+    const at = (x) => x.lat != null && distanceM(x, { lat: ll.lat, lon: ll.lng }) < 30;
+    const s = summitsData.summits.find(at);
+    if (s) { if (!r.summits.includes(s.ref)) r.summits.push(s.ref); return; }
+    const h = hillsData.hills.find(at);
+    if (h && !r.hills.includes(h.id)) r.hills.push(h.id);
   }
 
   async function drawDone() {
@@ -732,6 +787,20 @@
         });
         overlay.addLayer(m);
       }
+      for (const w of r.waypoints ?? []) {
+        const m = L.marker([w.lat, w.lon], {
+          draggable: true,
+          icon: L.divIcon({ className: 'parking-wrap', html: `<div class="waypoint-icon" style="border-color:${ri.color}">📍</div>`, iconSize: [22, 22] }),
+        }).bindTooltip(`${multi ? `${ri.number}: ` : ''}${esc(w.label || 'Waypoint')}${w.minutes ? ` (${w.minutes} min stop)` : ''} · drag to move`);
+        m.on('dragend', () => {
+          const ll = m.getLatLng();
+          const near = nearestPoint(lines[r.id] ?? [], { lat: ll.lat, lon: ll.lng });
+          const p = (lines[r.id] ?? []).flat()[near.index];
+          if (p) { w.lat = round6(p.lat); w.lon = round6(p.lon); }
+          r.waypoints = [...r.waypoints];
+        });
+        overlay.addLayer(m);
+      }
       (r.bikeDrops ?? []).forEach((d, i) => {
         const label = r.bikeDrops.length > 1 ? `Bike drop ${i + 1}` : 'Bike drop';
         const m = L.marker([d.lat, d.lon], {
@@ -828,7 +897,7 @@
   });
 
   $effect(() => {
-    if (mapEl) mapEl.style.cursor = pickParking || pickDrop || draw ? 'crosshair' : '';
+    if (mapEl) mapEl.style.cursor = pickParking || pickDrop || pickWaypoint || draw ? 'crosshair' : '';
   });
 
   onMount(() => {
@@ -840,7 +909,9 @@
     created.map.on('popupopen', (e) => {
       if (!draw) return;
       created.map.closePopup();
-      drawAdd(e.popup.getLatLng());
+      const ll = e.popup.getLatLng();
+      drawAdd(ll);
+      markStopAt(trip.routes.find((x) => x.id === draw.routeId), ll);
     });
     map = created.map;
     sizeSummitsOnZoom(map);
@@ -849,6 +920,12 @@
         const r = trip?.routes.find((x) => x.id === pickDrop);
         pickDrop = null;
         if (r) addDrop(r, e.latlng);
+        return;
+      }
+      if (pickWaypoint) {
+        const r = trip?.routes.find((x) => x.id === pickWaypoint);
+        pickWaypoint = null;
+        if (r) addWaypoint(r, e.latlng);
         return;
       }
       if (draw) { drawAdd(e.latlng); return; }
@@ -1057,10 +1134,33 @@
                     <button class="small icon" onclick={() => removeDrop(r, i)} aria-label="Remove bike drop">✕</button></span>
                 {/each}
                 <button class="small" class:primary={pickDrop === r.id}
-                        onclick={() => { activeId = r.id; pickParking = false; pickDrop = pickDrop === r.id ? null : r.id; }}>
+                        onclick={() => { activeId = r.id; pickParking = false; pickWaypoint = null; pickDrop = pickDrop === r.id ? null : r.id; }}>
                   {pickDrop === r.id ? 'Click the track…' : '+ Bike drop'}</button>
                 {#if !r.bikeDrops?.length}<span class="muted">Cycling in? Add where you'll leave the bike: the timetable then has cycle stages.</span>{/if}
               </div>
+              <div class="waypoints small">
+                <div class="row">
+                  <span>Waypoints:</span>
+                  <button class="small" class:primary={pickWaypoint === r.id}
+                          onclick={() => { activeId = r.id; pickParking = false; pickDrop = null; pickWaypoint = pickWaypoint === r.id ? null : r.id; }}>
+                    {pickWaypoint === r.id ? 'Click the track…' : '+ Waypoint'}</button>
+                  {#if !r.waypoints?.length}<span class="muted">A bealach, lunch spot or river crossing to time the walk to, with an optional stop.</span>{/if}
+                </div>
+                {#each r.waypoints ?? [] as w (w.id)}
+                  <div class="row wp">
+                    <span>📍</span>
+                    <input class="wp-name" bind:value={w.label} aria-label="Waypoint name" placeholder="e.g. Bealach" />
+                    <input class="wp-min" type="number" min="0" step="5" bind:value={w.minutes} aria-label="Minutes stopped" />
+                    <span class="muted">min stop</span>
+                    <button class="small icon" onclick={() => removeWaypoint(r, w)} aria-label="Remove waypoint">✕</button>
+                  </div>
+                {/each}
+              </div>
+              {@const arr = arrivalsFor(r)}
+              {#if arr.length > 1 || arr.some((a) => a.kind !== 'summit')}
+                <p class="small arrivals tabular"><span class="muted">From setting off:</span>
+                  {#each arr as a, k}{k ? ' · ' : ' '}{a.name} <strong>{fmtDuration(a.at)}</strong>{/each}</p>
+              {/if}
             {/if}
             <div class="row">
               <button class="small" onclick={() => startDraw(r)} disabled={!!draw}
@@ -1085,14 +1185,20 @@
                   <button class="small" onclick={() => editDraw([], [])} disabled={!draw.points.length}>Clear</button>
                 </div>
                 <p class="muted small">
-                  Click the map to add points. Drag a point to move it, click it to remove it, and click a stretch to switch
-                  it between following paths and a straight line.
+                  Click the map to add points; click a summit or hill to put a point on it and add it to the route. Drag a
+                  point to move it, click it to remove it, and click a stretch to switch it between following paths and a
+                  straight line.
                 </p>
                 {#if dst}
                   {@const p = paceFor(pace, r.terrain, r.company)}
                   <p class="small tabular">{dst.distanceKm} km · {dst.ascentM} m up · high point {dst.maxEleM ?? '?'} m ·
                     walking about <strong>{fmtDuration(round5(routeWalkMinutes([drawLine], p.params)))}</strong>
                     <span class="muted">({oneWayKm([drawLine]) != null ? 'there and back' : 'as drawn'})</span></p>
+                  {@const arr = arrivalsFor(r, [drawLine])}
+                  {#if arr.length}
+                    <p class="small tabular"><span class="muted">From setting off:</span>
+                      {#each arr as a, k}{k ? ' · ' : ' '}{a.name} <strong>{fmtDuration(a.at)}</strong>{/each}</p>
+                  {/if}
                 {/if}
                 {#if drawFallbacks}<p class="small">No path was found for {drawFallbacks === 1 ? 'one stretch' : `${drawFallbacks} stretches`}, so {drawFallbacks === 1 ? 'it was' : 'they were'} drawn straight.</p>{/if}
                 <div class="row">
@@ -1108,7 +1214,7 @@
               <input class="grow tabular" bind:value={parkingText[r.id]} onchange={() => parkingFromText(r)}
                      placeholder='Paste "lat, lon" or a Google Maps link' aria-label="Parking coordinates" />
               <button class="small" class:primary={pickParking && r.id === active?.id}
-                      onclick={() => { activeId = r.id; pickDrop = null; pickParking = !pickParking; }}>
+                      onclick={() => { activeId = r.id; pickDrop = null; pickWaypoint = null; pickParking = !pickParking; }}>
                 {pickParking && r.id === active?.id ? 'Click the map…' : 'Pick on map'}
               </button>
               {#if lines[r.id]?.length}<button class="small" onclick={() => parkingFromGpx(r)}>Use GPX start</button>{/if}
@@ -1216,6 +1322,7 @@
         </div>
       {/if}
       {#if draw}<p class="small">Drawing: click the map to add points ({DRAW_MODES[drawMode].toLowerCase()} next).</p>{/if}
+      {#if pickWaypoint}<p class="small">Click the route's track where the waypoint is.</p>{/if}
       {#if pickDrop}<p class="small">Click the route's track where you'll leave the bike.</p>{/if}
       {#if pickParking}<p class="small">Click the map to set the parking spot{multi ? ` for route ${info.get(active?.id)?.number}` : ''}.</p>{/if}
     </div>
@@ -1246,6 +1353,11 @@
   .park-label { margin-top: 0.2rem; }
   .terrain { margin: 0.3rem 0 0.5rem; }
   .bike-drops { margin: 0 0 0.5rem; align-items: center; }
+  .waypoints { display: flex; flex-direction: column; gap: 0.25rem; margin: 0 0 0.5rem; }
+  .waypoints .row { align-items: center; }
+  .wp-name { flex: 1; min-width: 8em; }
+  .wp-min { width: 4.5em; }
+  .arrivals { margin: 0 0 0.5rem; }
   .draw-panel { border: 1px solid var(--line); border-radius: var(--radius); padding: 0.5rem; margin: 0.4rem 0 0.6rem;
     display: flex; flex-direction: column; gap: 0.35rem; }
   .draw-panel p { margin: 0; }

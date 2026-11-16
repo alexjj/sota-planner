@@ -134,3 +134,7 @@ label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 
 /* Bike drop marker (trip editor and trip page) */
 .bike-icon { width: 22px; height: 22px; border-radius: 50%; background: #fff; border: 2px solid #222;
   display: flex; align-items: center; justify-content: center; font-size: 13px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); }
+
+/* Waypoint marker (trip editor and trip page) */
+.waypoint-icon { width: 20px; height: 20px; border-radius: 50%; background: #fff; border: 2px solid #222;
+  display: flex; align-items: center; justify-content: center; font-size: 11px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); }

@@ -38,6 +38,9 @@ delete. Change save behaviour there, not in one backend only.
 - Route colours and numbers (P1, P2…) come from route order via `routeInfo`.
 - A route may have `terrain` (easy/moderate/rough) and `company` (fraser/others; absent = solo) for walk estimates,
   and `bikeDrops` ([{lat, lon}] on its track): `plan.js` then plans cycle and walk stages (`dropPasses`, `routeTimes`).
+- A route may have `waypoints` ([{id, label, minutes, lat, lon}]). `plan.js` `routeStops` splits the walk at summits,
+  hills and waypoints on the track (first pass of each); `walkStages` returns `arrivals` (minutes to each stop).
+  Waypoint stops become `break` stages with `waypoint: id`, which re-estimate treats as planned stages.
 - A route drawn in the editor has `drawn: { points: [{lat, lon}], modes: ['path'|'line'] }` (one mode per stretch)
   so it can be edited again; its GPX is still the source of truth. `src/lib/draw.js` (browser only) follows
   paths with BRouter (brouter.de, hiking-mountain profile) and draws straight lines with terrain-tile heights.

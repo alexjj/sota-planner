@@ -108,6 +108,11 @@
             .addTo(map);
           bounds.extend([r.parking.lat, r.parking.lon]);
         }
+        for (const w of r.waypoints ?? []) {
+          L.marker([w.lat, w.lon], {
+            icon: L.divIcon({ className: 'parking-wrap', html: `<div class="waypoint-icon" style="border-color:${ri.color}">📍</div>`, iconSize: [22, 22] }),
+          }).bindTooltip(`${multi ? `${ri.number}: ` : ''}${esc(w.label || 'Waypoint')}${w.minutes ? ` (${w.minutes} min stop)` : ''}`).addTo(map);
+        }
         (r.bikeDrops ?? []).forEach((d, k) => {
           L.marker([d.lat, d.lon], {
             icon: L.divIcon({ className: 'parking-wrap', html: `<div class="bike-icon" style="border-color:${ri.color}">🚲</div>`, iconSize: [24, 24] }),
