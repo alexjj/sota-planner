@@ -3,11 +3,38 @@
 // No browser- or Node-only APIs here.
 
 import { legsAt, nearestPoint, walkMinutes, round5 } from './pace.js';
+import { distanceM } from './gpx.js';
 import { STAGE_TYPES } from './time.js';
 import { newId } from './trip.js';
 
 /** A summit counts as on the route if the track passes within this distance. */
 const ON_TRACK_M = 300;
+/**
+ * A track that ends further than this from where it starts is one-way (e.g. drawn
+ * only up to the summit): you come back the same way, so the walk back is the
+ * track in reverse.
+ */
+const ROUND_TRIP_M = 400;
+
+/** The same stretch walked the other way: climbs become descents. */
+const reverse = (leg) => ({ distanceKm: leg.distanceKm, upM: leg.downM, downM: leg.upM });
+const plus = (...legs) => legs.reduce((a, b) => ({
+  distanceKm: a.distanceKm + b.distanceKm, upM: a.upM + b.upM, downM: a.downM + b.downM,
+}));
+
+/** For a one-way track (see ROUND_TRIP_M), how far its end is from its start in km; else null. */
+export function oneWayKm(lines) {
+  const pts = lines?.flat() ?? [];
+  if (pts.length < 2) return null;
+  const gap = distanceM(pts[0], pts.at(-1));
+  return gap > ROUND_TRIP_M ? Math.round(gap / 100) / 10 : null;
+}
+
+/** Walking minutes for a whole route: the track, plus the way back if it's one-way. */
+export function routeWalkMinutes(lines, params) {
+  const whole = plus(...legsAt(lines, []));
+  return walkMinutes(oneWayKm(lines) != null ? plus(whole, reverse(whole)) : whole, params);
+}
 
 /**
  * Walk and activation stages for one route, in walking order.
@@ -15,7 +42,8 @@ const ON_TRACK_M = 300;
  * @param lines         its parsed GPX (may be empty: then typical times are used)
  * @param params        pace numbers from paceFor()
  * @param summitsByRef  Map of SOTA ref -> summit
- * @returns {{ stages: object[], offTrack: string[] }} offTrack: summits the track doesn't reach
+ * @returns {{ stages: object[], offTrack: string[], oneWayKm: number|null }} offTrack: summits the
+ *   track doesn't reach; oneWayKm: for a one-way track, how far its end is from its start
  */
 export function walkStages(route, lines, params, summitsByRef) {
   const stages = [];
@@ -27,7 +55,7 @@ export function walkStages(route, lines, params, summitsByRef) {
     walk('Walk in', 120);
     route.summits.forEach((ref, k) => { if (k) walk(`Walk to ${name(ref)}`, 60); activate(ref); });
     walk('Walk out', 90);
-    return { stages, offTrack: [] };
+    return { stages, offTrack: [], oneWayKm: null };
   }
 
   const on = [], offTrack = [];
@@ -41,8 +69,10 @@ export function walkStages(route, lines, params, summitsByRef) {
 
   const legs = legsAt(lines, on.map((o) => o.index));
   const mins = (leg) => round5(walkMinutes(leg, params));
+  const oneWay = oneWayKm(lines) != null;
+  const whole = plus(...legs);
   if (!on.length) {
-    walk('Walk', round5(legs.reduce((t, leg) => t + walkMinutes(leg, params), 0)));
+    walk(oneWay ? 'Walk there and back' : 'Walk', mins(oneWay ? plus(whole, reverse(whole)) : whole));
   } else {
     walk('Walk in', mins(legs[0]));
     on.forEach((o, k) => {
@@ -51,6 +81,10 @@ export function walkStages(route, lines, params, summitsByRef) {
     });
   }
   for (const ref of offTrack) activate(ref);
-  if (on.length) walk('Walk out', mins(legs.at(-1)));
-  return { stages, offTrack };
+  if (on.length) {
+    // Round trip: the rest of the track. One-way: on to its end, then all the way back.
+    if (oneWay) walk('Walk back', mins(plus(legs.at(-1), reverse(whole))));
+    else walk('Walk out', mins(legs.at(-1)));
+  }
+  return { stages, offTrack, oneWayKm: oneWayKm(lines) };
 }

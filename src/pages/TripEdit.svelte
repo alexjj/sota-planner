@@ -7,7 +7,7 @@
     createTrip, saveTrip, deleteTrip, getStatus, getPace,
   } from '../lib/store.js';
   import { paceFor, statsMinutes, round5, TERRAINS, DEFAULT_TERRAIN, COMPANY, DEFAULT_COMPANY } from '../lib/pace.js';
-  import { walkStages } from '../lib/plan.js';
+  import { walkStages, routeWalkMinutes, oneWayKm } from '../lib/plan.js';
   import { fmtDuration } from '../lib/time.js';
   import { driveTime } from '../lib/routing.js';
   import { loadHome } from '../lib/home.js';
@@ -141,12 +141,14 @@
       (trip.routes.length === 1 ? !st.route || st.route === r.id : stageRouteId(st, trip) === r.id));
   }
 
-  /** Estimated walking time for a route from its GPX stats and your pace. */
+  /** Estimated walking time for a route from its GPX (there and back if it's one-way) and your pace. */
   function estimateFor(r) {
     const st = statsFor(r);
     if (!st) return null;
     const p = paceFor(pace, r.terrain, r.company);
-    return { minutes: round5(statsMinutes(st, p.params)), basis: p.basis };
+    const l = lines[r.id];
+    const minutes = l?.length ? routeWalkMinutes(l, p.params) : statsMinutes(st, p.params);
+    return { minutes: round5(minutes), basis: p.basis, oneWayKm: l?.length ? oneWayKm(l) : null };
   }
 
   const driveNote = (d, what) => d.how === 'guess' ? `${what} is a rough guess (couldn't reach the road router)` : null;
@@ -173,8 +175,9 @@
     const others = trip.routes.filter((x) => x !== r);
     linkFirstRoute(others[0]);
     const p = paceFor(pace, r.terrain, r.company);
-    const { stages, offTrack } = walkStages(r, lines[r.id], p.params, summitsData.byRef);
+    const { stages, offTrack, oneWayKm: away } = walkStages(r, lines[r.id], p.params, summitsData.byRef);
     if (offTrack.length) notes.push(`${offTrack.join(', ')} isn't on the GPX track: check where its activation goes`);
+    if (away != null) notes.push(`the GPX ends ${away} km from its start, so the walk back follows it in reverse`);
     const home = loadHome();
 
     if (!tt.stages.length) {
@@ -848,7 +851,7 @@
                       onchange={(e) => { const v = e.currentTarget.value; if (v === DEFAULT_COMPANY) delete r.company; else r.company = v; }}>
                 {#each Object.entries(COMPANY) as [key, label]}<option value={key}>{label}</option>{/each}
               </select>
-              {#if est}<span>Walking about <strong>{fmtDuration(est.minutes)}</strong> <span class="muted">({est.basis})</span></span>{/if}
+              {#if est}<span>Walking about <strong>{fmtDuration(est.minutes)}</strong> <span class="muted">({est.basis}{est.oneWayKm != null ? ', there and back' : ''})</span></span>{/if}
               {#if lines[r.id]?.length && !hasElevation(lines[r.id])}
                 <button class="small" onclick={() => addHeights(r)} disabled={addingHeights === r.id}
                         title="This GPX has no heights. Look them up from terrain data so ascent and walk times are right">

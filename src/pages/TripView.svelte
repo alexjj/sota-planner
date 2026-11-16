@@ -5,6 +5,7 @@
   import { getSummits, getHills, getTrip, getGpxText, gpxUrl, photoUrl, googleMapsUrl, getPace } from '../lib/store.js';
   import { paceFor, statsMinutes, round5, TERRAINS, COMPANY } from '../lib/pace.js';
   import { parseGpx } from '../lib/gpx.js';
+  import { routeWalkMinutes, oneWayKm } from '../lib/plan.js';
   import { fmtDuration } from '../lib/time.js';
   import { routeInfo, tripStats } from '../lib/trip.js';
   import Timetable from '../components/Timetable.svelte';
@@ -60,7 +61,9 @@
   const walkEstimate = (r) => {
     const p = paceFor(pace, r.terrain, r.company);
     const who = COMPANY[r.company] && r.company !== 'solo' ? `, w${COMPANY[r.company].slice(1)}` : ''; // ', with Fraser'
-    return { minutes: round5(statsMinutes(r.stats, p.params)), basis: p.basis, terrain: TERRAINS[r.terrain ?? 'moderate'] + who };
+    const l = lines[r.id];
+    const minutes = l?.length ? routeWalkMinutes(l, p.params) : statsMinutes(r.stats, p.params);
+    return { minutes: round5(minutes), basis: p.basis + (l?.length && oneWayKm(l) != null ? ', there and back' : ''), terrain: TERRAINS[r.terrain ?? 'moderate'] + who };
   };
 
   onMount(() => {
@@ -189,7 +192,7 @@
                 {#if r.stats.maxEleM != null}
                   <div><span class="muted small">High point</span><strong>{r.stats.maxEleM} m</strong></div>
                 {/if}
-                <div title="{est.terrain}. Based on {est.basis}."><span class="muted small">{est.basis === 'Naismith' ? 'Naismith' : 'Walking'}</span><strong>{fmtDuration(est.minutes)}</strong></div>
+                <div title="{est.terrain}. Based on {est.basis}."><span class="muted small">{est.basis.startsWith('Naismith') ? 'Naismith' : 'Walking'}</span><strong>{fmtDuration(est.minutes)}</strong></div>
               </div>
               {#if lines[r.id]}<ElevationProfile lines={lines[r.id]} color={ri.color} />{/if}
               <a class="small" href={gpxUrl(id, r.gpx)} download="{id}-{i + 1}.gpx">Download GPX</a>
