@@ -2,8 +2,7 @@
   import { onMount } from 'svelte';
   import L from 'leaflet';
   import { createMap, summitMarker, hillMarker, parkingMarker, trackLayer, esc, summitLinks, hillLinks, COLORS, POINTS_COLORS, sizeSummitsOnZoom, webZoom, mapZoom } from '../lib/map.js';
-  import { getSummits, getHills, getIndex, getTrip, saveTrip } from '../lib/store.js';
-  import { getMyActivations } from '../lib/activations.js';
+  import { getSummits, getHills, getIndex, getTrip, saveTrip, getActivations } from '../lib/store.js';
   import { showFlash } from '../lib/flash.svelte.js';
   import { fmtDuration } from '../lib/time.js';
 
@@ -125,7 +124,7 @@
       try {
         [summitsData, hillsData, trips, activated] = await Promise.all([
           getSummits(), getHills(), getIndex(),
-          getMyActivations().catch((e) => { showFlash(`Couldn't load your activations: ${e.message}`); return null; }),
+          getActivations(),
         ]);
         if (gone) return; // left the page while loading
       } catch (e) {

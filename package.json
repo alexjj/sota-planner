@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "serve": "node server/edit-server.js",
-    "import-data": "node scripts/import-data.js"
+    "import-data": "node scripts/import-data.js",
+    "import-activations": "node scripts/import-activations.js"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.3.1",

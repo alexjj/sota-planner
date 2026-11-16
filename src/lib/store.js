@@ -32,6 +32,15 @@ export const getHills = once(async () => {
   return { ...d, hills: d.hills.filter((h) => h.type !== 'Munro Top'), byId: new Map(d.hills.map((h) => [h.id, h])) };
 });
 
+/**
+ * Summits you've activated: Map of ref -> { count, last }, from data/activations.json
+ * (written nightly by a GitHub Action). null if there's no such file.
+ */
+export const getActivations = once(async () => {
+  const d = await loadJson('data/activations.json').catch(() => null);
+  return d?.summits ? new Map(Object.entries(d.summits)) : null;
+});
+
 let mode = 'static';
 let gh = null; // GitHub settings in github mode
 
