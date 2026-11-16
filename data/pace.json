@@ -183,6 +183,43 @@
       }
     },
     {
+      "id": "w76st9h",
+      "name": "Carn an Fhreiceadain",
+      "date": "2026-08-25",
+      "terrain": "moderate",
+      "company": "solo",
+      "mode": "cycle",
+      "src": "2026-08-25 2822",
+      "distanceKm": 18.31,
+      "ascentM": 700,
+      "descentM": 701,
+      "movingMin": 115,
+      "restMin": 25,
+      "stopMin": 29,
+      "sums": {
+        "xtx": [
+          10.5143,
+          3.7536,
+          4.3064,
+          3.4147,
+          0.207,
+          4.6606
+        ],
+        "xty": [
+          63.5895,
+          41.4189,
+          15.3547
+        ],
+        "n": 33
+      },
+      "fit": {
+        "flat": 2.42,
+        "up": 9.43,
+        "down": 0.64,
+        "rest": 0.217
+      }
+    },
+    {
       "id": "w53qluu",
       "name": "Beinn Liath Mhor and Sgorr Ruadh",
       "date": "2026-08-06",
