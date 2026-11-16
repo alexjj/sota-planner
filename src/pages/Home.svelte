@@ -152,7 +152,7 @@
       // Munros: all of them, so they still show with SOTA summits switched off.
       // A Munro that is also a SOTA summit is drawn as a ring around the SOTA dot.
       const munroGroup = L.layerGroup();
-      // Other tops: Munro Tops, Corbetts and Grahams that aren't SOTA summits.
+      // Other hills: Corbetts and Grahams that aren't SOTA summits.
       const topGroup = L.layerGroup();
       for (const h of hillsData.hills) {
         if (h.type === 'Munro') {
@@ -191,7 +191,7 @@
       routes.addTo(map);
       created.control.addOverlay(summitGroup, `<span style="color:${POINTS_COLORS[6]}">●</span> SOTA summits`);
       created.control.addOverlay(munroGroup, `<span style="color:${COLORS.hill}">●</span> Munros`);
-      created.control.addOverlay(topGroup, `<span style="color:${COLORS.top}">●</span> Other tops`);
+      created.control.addOverlay(topGroup, `<span style="color:${COLORS.top}">●</span> Corbetts &amp; Grahams`);
       created.control.addOverlay(routes, `<span style="color:${COLORS.route}">━</span> Routes & parking`);
       // Toggling a layer back on draws it on top, so keep summits and routes above the hills.
       map.on('overlayadd', () => {

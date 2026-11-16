@@ -27,7 +27,9 @@ export const getSummits = once(async () => {
 
 export const getHills = once(async () => {
   const d = await loadJson('data/hills.json');
-  return { ...d, byId: new Map(d.hills.map((h) => [h.id, h])) };
+  // Munro Tops aren't shown or offered anywhere; byId keeps them so a trip that
+  // already names one still shows it.
+  return { ...d, hills: d.hills.filter((h) => h.type !== 'Munro Top'), byId: new Map(d.hills.map((h) => [h.id, h])) };
 });
 
 let mode = 'static';
