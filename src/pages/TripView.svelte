@@ -3,7 +3,7 @@
   import L from 'leaflet';
   import { createMap, summitMarker, hillMarker, parkingMarker, trackLayer, esc, summitLinks, sizeSummitsOnZoom, mapZoom } from '../lib/map.js';
   import { getSummits, getHills, getTrip, getGpxText, gpxUrl, photoUrl, googleMapsUrl, getPace } from '../lib/store.js';
-  import { paceFor, statsMinutes, round5, TERRAINS } from '../lib/pace.js';
+  import { paceFor, statsMinutes, round5, TERRAINS, COMPANY } from '../lib/pace.js';
   import { parseGpx } from '../lib/gpx.js';
   import { fmtDuration } from '../lib/time.js';
   import { routeInfo, tripStats } from '../lib/trip.js';
@@ -58,8 +58,9 @@
 
   let pace = $state.raw({ walks: [] });
   const walkEstimate = (r) => {
-    const p = paceFor(pace, r.terrain);
-    return { minutes: round5(statsMinutes(r.stats, p.params)), basis: p.basis, terrain: TERRAINS[r.terrain ?? 'moderate'] };
+    const p = paceFor(pace, r.terrain, r.company);
+    const who = COMPANY[r.company] && r.company !== 'solo' ? `, w${COMPANY[r.company].slice(1)}` : ''; // ', with Fraser'
+    return { minutes: round5(statsMinutes(r.stats, p.params)), basis: p.basis, terrain: TERRAINS[r.terrain ?? 'moderate'] + who };
   };
 
   onMount(() => {

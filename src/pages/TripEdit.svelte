@@ -6,7 +6,7 @@
     getSummits, getHills, getTrip, getIndex, getGpxText, photoUrl, parseLatLon, googleMapsPlaceUrl,
     createTrip, saveTrip, deleteTrip, getStatus, getPace,
   } from '../lib/store.js';
-  import { paceFor, statsMinutes, round5, TERRAINS, DEFAULT_TERRAIN } from '../lib/pace.js';
+  import { paceFor, statsMinutes, round5, TERRAINS, DEFAULT_TERRAIN, COMPANY, DEFAULT_COMPANY } from '../lib/pace.js';
   import { walkStages } from '../lib/plan.js';
   import { fmtDuration } from '../lib/time.js';
   import { driveTime } from '../lib/routing.js';
@@ -145,7 +145,7 @@
   function estimateFor(r) {
     const st = statsFor(r);
     if (!st) return null;
-    const p = paceFor(pace, r.terrain);
+    const p = paceFor(pace, r.terrain, r.company);
     return { minutes: round5(statsMinutes(st, p.params)), basis: p.basis };
   }
 
@@ -172,7 +172,7 @@
     }
     const others = trip.routes.filter((x) => x !== r);
     linkFirstRoute(others[0]);
-    const p = paceFor(pace, r.terrain);
+    const p = paceFor(pace, r.terrain, r.company);
     const { stages, offTrack } = walkStages(r, lines[r.id], p.params, summitsData.byRef);
     if (offTrack.length) notes.push(`${offTrack.join(', ')} isn't on the GPX track: check where its activation goes`);
     const home = loadHome();
@@ -206,7 +206,7 @@
 
   /** Update this route's walk times from its GPX and your pace, keeping everything else. */
   async function reestimate(r) {
-    const p = paceFor(pace, r.terrain);
+    const p = paceFor(pace, r.terrain, r.company);
     const fresh = walkStages(r, lines[r.id], p.params, summitsData.byRef).stages.filter((st) => st.type === 'walk');
     const mine = routeWalks(r);
     if (!mine.length) {
@@ -841,6 +841,12 @@
               <label for="terrain-{r.id}" class="inline">Terrain</label>
               <select id="terrain-{r.id}" value={r.terrain ?? DEFAULT_TERRAIN} onchange={(e) => (r.terrain = e.currentTarget.value)}>
                 {#each Object.entries(TERRAINS) as [key, label]}<option value={key}>{label}</option>{/each}
+              </select>
+              <label for="company-{r.id}" class="inline">Walking</label>
+              <select id="company-{r.id}" value={r.company ?? DEFAULT_COMPANY}
+                      title="Uses your walks with the same company for the times (solo walks if you have none yet)"
+                      onchange={(e) => { const v = e.currentTarget.value; if (v === DEFAULT_COMPANY) delete r.company; else r.company = v; }}>
+                {#each Object.entries(COMPANY) as [key, label]}<option value={key}>{label}</option>{/each}
               </select>
               {#if est}<span>Walking about <strong>{fmtDuration(est.minutes)}</strong> <span class="muted">({est.basis})</span></span>{/if}
               {#if lines[r.id]?.length && !hasElevation(lines[r.id])}
