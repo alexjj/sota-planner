@@ -108,7 +108,7 @@ are converted to this layout automatically when the edit server starts.
 ## Your activated summits
 
 `SOTA_USER_ID` in `.env` is your SOTA database user id: the number in your activator log address,
-`https://api-db2.sota.org.uk/logs/activator/<id>/0/1`. Every night the **Update my activations**
+`https://api-db2.sota.org.uk/logs/activator/<id>/9999/1`. Every night the **Update my activations**
 GitHub Action downloads that log to `data/activations.json` (run `npm run import-activations` to do
 it by hand) and, if it changed, commits it and redeploys the site.
 

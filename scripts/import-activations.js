@@ -5,7 +5,7 @@
 //   npm run import-activations
 //
 // Your SOTA database user id comes from SOTA_USER_ID in the environment or in
-// .env (the number in https://api-db2.sota.org.uk/logs/activator/<id>/0/1).
+// .env (the number in https://api-db2.sota.org.uk/logs/activator/<id>/9999/1).
 // A GitHub Action runs this nightly; see .github/workflows/update-activations.yml.
 
 import { readFile, writeFile } from 'node:fs/promises';
@@ -26,7 +26,8 @@ if (!/^\d+$/.test(id)) {
   process.exit(1);
 }
 
-const res = await fetch(`https://api-db2.sota.org.uk/logs/activator/${id}/0/1`);
+// 9999 = your whole log (0 would be only the last 12 months).
+const res = await fetch(`https://api-db2.sota.org.uk/logs/activator/${id}/9999/1`);
 if (!res.ok) throw new Error(`SOTA activator log answered ${res.status}`);
 const rows = await res.json();
 if (!Array.isArray(rows)) throw new Error(`Unexpected answer from the activator log: ${JSON.stringify(rows).slice(0, 200)}`);
