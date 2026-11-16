@@ -5,7 +5,7 @@
   import { getPace, savePace, getStatus, parseLatLon, googleMapsPlaceUrl } from '../lib/store.js';
   import { loadHome, saveHome, clearHome, loadDrivePad, saveDrivePad, DEFAULT_DRIVE_PAD } from '../lib/home.js';
   import { parseGpx, gpxName } from '../lib/gpx.js';
-  import { learnWalk, combineWalks, walkMinutes, TERRAINS, DEFAULT_TERRAIN, NAISMITH } from '../lib/pace.js';
+  import { learnWalk, combineWalks, walkMinutes, walksWith, TERRAINS, DEFAULT_TERRAIN, COMPANY, DEFAULT_COMPANY, NAISMITH } from '../lib/pace.js';
   import { newId } from '../lib/trip.js';
   import { fmtDuration } from '../lib/time.js';
   import { showFlash } from '../lib/flash.svelte.js';
@@ -64,7 +64,7 @@
     status = await getStatus();
     try {
       const p = await getPace();
-      pace = { walks: p.walks ?? [] };
+      pace = { walks: (p.walks ?? []).map((w) => ({ company: DEFAULT_COMPANY, ...w })) };
     } catch (e) {
       messages = [`Couldn't load walking pace: ${e.message}`];
     }
@@ -80,9 +80,9 @@
         const rec = learnWalk(parseGpx(text));
         const dupe = pace.walks.find((w) => w.date === rec.date && Math.abs(w.distanceKm - rec.distanceKm) < 0.05);
         if (dupe) { out.push(`${f.name}: already added as "${dupe.name}".`); continue; }
-        pace.walks.push({ id: newId('w'), name: gpxName(text) || f.name.replace(/\.gpx$/i, ''), terrain: DEFAULT_TERRAIN, ...rec });
+        pace.walks.push({ id: newId('w'), name: gpxName(text) || f.name.replace(/\.gpx$/i, ''), terrain: DEFAULT_TERRAIN, company: DEFAULT_COMPANY, ...rec });
         dirty = true;
-        out.push(`${f.name}: added. Set its terrain below.`);
+        out.push(`${f.name}: added. Set its terrain and who you walked with below.`);
       } catch (e) {
         out.push(`${f.name}: can't learn from this file because ${e.message}`);
       }
@@ -116,13 +116,17 @@
     }
   }
 
-  // Summary rows: each terrain, all walks, and Naismith for comparison.
+  // Summary rows: your solo walks by terrain (what the planner uses), all solo walks,
+  // each kind of company, and Naismith for comparison.
   const summary = $derived.by(() => {
-    const rows = Object.entries(TERRAINS).map(([key, label]) => {
-      const walks = pace.walks.filter((w) => w.terrain === key);
-      return { key, label, count: walks.length, params: walks.length ? combineWalks(walks) : null };
-    });
-    rows.push({ key: 'all', label: 'All walks', count: pace.walks.length, params: pace.walks.length ? combineWalks(pace.walks) : null });
+    const solo = walksWith(pace);
+    const row = (key, label, walks, empty) => ({ key, label, count: walks.length, params: walks.length ? combineWalks(walks) : null, empty });
+    const rows = Object.entries(TERRAINS).map(([key, label]) =>
+      row(key, label, solo.filter((w) => w.terrain === key), solo.length ? 'uses all your solo walks' : 'uses Naismith'));
+    rows.push(row('all', 'All solo walks', solo, 'uses Naismith'));
+    for (const [key, label] of Object.entries(COMPANY)) {
+      if (key !== DEFAULT_COMPANY) rows.push(row(`with-${key}`, label, walksWith(pace, key), 'not used for planning yet'));
+    }
     rows.push({ key: 'naismith', label: "Naismith's rule", count: null, params: NAISMITH });
     return rows;
   });
@@ -172,7 +176,9 @@
       Add GPX recordings of walks you've done (from a watch, phone or GPS: they need timestamps).
       The planner works out your speed on the flat, the extra time per 100 m up and down, and how much
       you rest along the way. Stops of 20 minutes or more, like activations and lunch, are left out.
-      Mark each walk's terrain, and new routes use the walks that match. Only these numbers are saved
+      Mark each walk's terrain, and new routes use the walks that match. Mark walks with company as
+      <b>With Fraser</b> or <b>With others</b>: they're summarised separately and don't change your own
+      pace. Only these numbers are saved
       to GitHub (<code>data/pace.json</code>), not the tracks.
     </p>
 
@@ -194,7 +200,7 @@
                 <td>{pct(r.params.rest)}</td>
                 <td><strong>{fmtDuration(walkMinutes(example, r.params))}</strong></td>
               {:else}
-                <td colspan="5" class="muted">No walks yet{r.key !== 'all' && pace.walks.length ? ': uses all your walks' : ': uses Naismith'}</td>
+                <td colspan="5" class="muted">No walks yet: {r.empty}</td>
               {/if}
             </tr>
           {/each}
@@ -220,7 +226,7 @@
       {#if pace.walks.length}
         <table class="walks tabular">
           <thead>
-            <tr><th>Walk</th><th>Date</th><th>Terrain</th><th>Distance</th><th>Up</th><th>Moving</th><th>Rests</th>
+            <tr><th>Walk</th><th>Date</th><th>Terrain</th><th>With</th><th>Distance</th><th>Up</th><th>Moving</th><th>Rests</th>
               <th title="Minutes per km on the flat / per 100 m up / per 100 m down">Fit (flat / up / down)</th><th></th></tr>
           </thead>
           <tbody>
@@ -237,6 +243,13 @@
                       {#each Object.entries(TERRAINS) as [key, label]}<option value={key}>{label}</option>{/each}
                     </select>
                   {:else}{TERRAINS[w.terrain] ?? w.terrain}{/if}
+                </td>
+                <td>
+                  {#if status?.edit}
+                    <select bind:value={w.company} onchange={() => (dirty = true)} aria-label="Walked with">
+                      {#each Object.entries(COMPANY) as [key, label]}<option value={key}>{label}</option>{/each}
+                    </select>
+                  {:else}{COMPANY[w.company] ?? COMPANY[DEFAULT_COMPANY]}{/if}
                 </td>
                 <td>{w.distanceKm.toFixed(1)} km</td>
                 <td>{w.ascentM} m</td>

@@ -269,7 +269,7 @@ Open **Settings** at the top right.
   - extra minutes per 100 m up and per 100 m down,
   - short rests along the way, as a percentage. Stops of 20 minutes or more, like activations and lunch, are left out.
 
-  Mark each walk as easy, moderate or rough terrain. A route uses the walks with its terrain, else all your walks, else Naismith's rule. Only these numbers go into `data/pace.json` (not the tracks), so every browser and the public site use the same pace. Saving works in local and GitHub mode, like a trip.
+  Mark each walk as easy, moderate or rough terrain, and who you walked with: solo, **With Fraser** or **With others**. A route uses your solo walks with its terrain, else all your solo walks, else Naismith's rule. Walks with company are summarised separately, so they capture those timings without changing your own pace (older walks count as solo). Only these numbers go into `data/pace.json` (not the tracks), so every browser and the public site use the same pace. Saving works in local and GitHub mode, like a trip.
 
 ## Credits
 

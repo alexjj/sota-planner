@@ -18,6 +18,15 @@ export const TERRAINS = {
 };
 export const DEFAULT_TERRAIN = 'moderate';
 
+/** Who you walked with. Walks with company are kept apart so they don't change your own pace. */
+export const COMPANY = {
+  solo: 'Solo',
+  fraser: 'With Fraser',
+  others: 'With others',
+};
+export const DEFAULT_COMPANY = 'solo';
+const companyOf = (w) => (COMPANY[w.company] ? w.company : DEFAULT_COMPANY);
+
 /** Naismith's rule, used until you've added some walks: 5 km/h plus 10 min per 100 m up. */
 export const NAISMITH = { flat: 12, up: 10, down: 0, rest: 0 };
 
@@ -185,15 +194,23 @@ export function combineWalks(walks) {
   };
 }
 
+/** Walks with this company (walks saved before company was recorded count as solo). */
+export function walksWith(pace, company = DEFAULT_COMPANY) {
+  return (pace?.walks ?? []).filter((w) => companyOf(w) === company);
+}
+
 /**
  * Pace numbers to use for a terrain: your walks on that terrain, else all your
- * walks, else Naismith. `basis` says which, for showing to the user.
+ * walks, else Naismith. Only walks with the same company count (solo by default),
+ * falling back to solo walks if there are none. `basis` says which, for showing to the user.
  */
-export function paceFor(pace, terrain = DEFAULT_TERRAIN) {
-  const walks = pace?.walks ?? [];
+export function paceFor(pace, terrain = DEFAULT_TERRAIN, company = DEFAULT_COMPANY) {
+  let walks = walksWith(pace, company);
+  let who = company === DEFAULT_COMPANY ? '' : ` w${COMPANY[company].slice(1)}`; // ' with Fraser'
+  if (!walks.length && company !== DEFAULT_COMPANY) { walks = walksWith(pace); who = ''; }
   const same = walks.filter((w) => w.terrain === terrain);
-  if (same.length) return { params: combineWalks(same), basis: `your ${terrain} walks`, count: same.length };
-  if (walks.length) return { params: combineWalks(walks), basis: 'all your walks', count: walks.length };
+  if (same.length) return { params: combineWalks(same), basis: `your ${terrain} walks${who}`, count: same.length };
+  if (walks.length) return { params: combineWalks(walks), basis: `all your walks${who}`, count: walks.length };
   return { params: NAISMITH, basis: 'Naismith', count: 0 };
 }
 
@@ -252,6 +269,7 @@ export function cleanPace(body) {
       name: String(w.name ?? '').slice(0, 120),
       date: /^\d{4}-\d\d-\d\d$/.test(w.date) ? w.date : null,
       terrain: TERRAINS[w.terrain] ? w.terrain : DEFAULT_TERRAIN,
+      company: companyOf(w),
       distanceKm: num(w.distanceKm), ascentM: num(w.ascentM), descentM: num(w.descentM),
       movingMin, restMin, stopMin: num(w.stopMin),
       sums,
