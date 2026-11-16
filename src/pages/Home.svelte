@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import L from 'leaflet';
-  import { createMap, summitMarker, hillMarker, parkingMarker, trackLayer, esc, summitLinks, hillLinks, COLORS, POINTS_COLORS, sizeSummitsOnZoom, webZoom, mapZoom } from '../lib/map.js';
+  import { createMap, summitMarker, hillMarker, parkingMarker, trackLayer, routeTrack, esc, summitLinks, hillLinks, COLORS, POINTS_COLORS, sizeSummitsOnZoom, webZoom, mapZoom } from '../lib/map.js';
   import { getSummits, getHills, getIndex, getTrip, saveTrip, getActivations } from '../lib/store.js';
   import { showFlash } from '../lib/flash.svelte.js';
   import { fmtDuration } from '../lib/time.js';
@@ -142,7 +142,7 @@
         const group = L.featureGroup();
         const lines = L.featureGroup();
         for (const r of t.routes) {
-          if (r.track?.length) lines.addLayer(trackLayer(r.track));
+          if (r.track?.length) lines.addLayer(routeTrack(r.track, r.bikeDrops));
           if (r.parking) {
             group.addLayer(parkingMarker(r.parking).bindPopup(
               `<h4>Parking</h4>${esc(r.parking.label ?? '')}<ul>${tripLink(t)}</ul>`));

@@ -1,7 +1,7 @@
 <script>
   import { onMount, tick } from 'svelte';
   import L from 'leaflet';
-  import { createMap, summitMarker, hillMarker, parkingMarker, trackLayer, esc, summitLinks, hillLinks, sizeSummitsOnZoom, mapZoom } from '../lib/map.js';
+  import { createMap, summitMarker, hillMarker, parkingMarker, trackLayer, routeTrack, esc, summitLinks, hillLinks, sizeSummitsOnZoom, mapZoom } from '../lib/map.js';
   import {
     getSummits, getHills, getTrip, getIndex, getGpxText, photoUrl, parseLatLon, googleMapsPlaceUrl,
     createTrip, saveTrip, deleteTrip, getStatus, getPace,
@@ -760,7 +760,7 @@
       if (!ri) continue;
       const isActive = r.id === active?.id;
       if (lines[r.id]?.length && draw?.routeId !== r.id) {
-        overlay.addLayer(trackLayer(lines[r.id], { color: ri.color, opacity: isActive || !multi ? 0.95 : 0.5, weight: isActive && multi ? 5 : 4 })
+        overlay.addLayer(routeTrack(lines[r.id], r.bikeDrops, { color: ri.color, opacity: isActive || !multi ? 0.95 : 0.5, weight: isActive && multi ? 5 : 4 })
           .bindTooltip(multi ? `${ri.number}. ${ri.label}` : ri.label, { sticky: true })
           .on('click', () => (activeId = r.id)));
       }

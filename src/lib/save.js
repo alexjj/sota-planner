@@ -112,6 +112,7 @@ export function indexEntry(trip, tracks = {}) {
     routes: trip.routes.map((r) => ({
       id: r.id, name: r.name, summits: r.summits, hills: r.hills,
       parking: r.parking, stats: r.stats, track: tracks[r.id] ?? [],
+      ...(r.bikeDrops?.length ? { bikeDrops: r.bikeDrops } : {}), // so a copied route keeps them
     })),
   };
 }

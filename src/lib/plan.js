@@ -296,3 +296,21 @@ function bikeStages(route, lines, stops, offTrack, walkParams, rideParams) {
   if (lastSummit < 0) offTrack.forEach(activate);
   return { stages, offTrack, oneWayKm: oneWayKm(lines), marks };
 }
+
+/**
+ * The track split where you leave and collect the bike: [{ mode: 'cycle'|'walk', pts }],
+ * in track order (no return leg). Without bike drops it's one walking part.
+ */
+export function trackModes(lines, drops) {
+  const pts = lines?.flat() ?? [];
+  const passes = dropPasses(lines, drops);
+  if (!passes.length) return [{ mode: 'walk', pts }];
+  const out = [];
+  let mode = 'cycle', from = 0;
+  for (const p of [...passes, pts.length - 1]) {
+    if (p > from) out.push({ mode, pts: pts.slice(from, p + 1) });
+    from = p;
+    mode = mode === 'cycle' ? 'walk' : 'cycle';
+  }
+  return out;
+}

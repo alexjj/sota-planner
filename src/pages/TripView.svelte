@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import L from 'leaflet';
-  import { createMap, summitMarker, hillMarker, parkingMarker, trackLayer, esc, summitLinks, sizeSummitsOnZoom, mapZoom } from '../lib/map.js';
+  import { createMap, summitMarker, hillMarker, parkingMarker, trackLayer, routeTrack, esc, summitLinks, sizeSummitsOnZoom, mapZoom } from '../lib/map.js';
   import { getSummits, getHills, getTrip, getGpxText, gpxUrl, photoUrl, googleMapsUrl, getPace } from '../lib/store.js';
   import { paceFor, ridePaceFor, statsMinutes, round5, TERRAINS, COMPANY } from '../lib/pace.js';
   import { parseGpx } from '../lib/gpx.js';
@@ -96,7 +96,7 @@
       for (const r of trip.routes) {
         const ri = routes.get(r.id);
         if (lines[r.id]?.length) {
-          const t = trackLayer(lines[r.id], { color: ri.color, opacity: 0.9 })
+          const t = routeTrack(lines[r.id], r.bikeDrops, { color: ri.color, opacity: 0.9 })
             .bindTooltip(multi ? `${ri.number}. ${ri.label}` : ri.label, { sticky: true })
             .addTo(map);
           trackLayers.set(r.id, t);

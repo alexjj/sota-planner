@@ -1,5 +1,6 @@
 import L from 'leaflet';
 import proj4 from 'proj4';
+import { trackModes } from './plan.js';
 
 const BASE_KEY = 'sota-trip-base-layer';
 
@@ -230,6 +231,24 @@ export function parkingMarker(p, { label = 'P', color = null, ...opts } = {}) {
 export function trackLayer(lines, style = {}) {
   const latlngs = lines.map((pts) => pts.map((p) => (Array.isArray(p) ? p : [p.lat, p.lon])));
   return L.polyline(latlngs, { color: COLORS.route, weight: 4, opacity: 0.85, ...style });
+}
+
+/** Cycling stretches of a route with bike drops (the same orange as the Settings split map). */
+export const CYCLE_COLOR = '#e8590c';
+
+/**
+ * A route's track, with the cycling stretches (before and after each bike drop)
+ * in CYCLE_COLOR so you can see where the bike is left. Without bike drops it's
+ * a plain trackLayer.
+ */
+export function routeTrack(lines, drops, style = {}) {
+  if (!drops?.length) return trackLayer(lines, style);
+  const pts = lines.map((l) => l.map((p) => (Array.isArray(p) ? { lat: p[0], lon: p[1] } : p)));
+  const parts = trackModes(pts, drops);
+  if (!parts.some((p) => p.mode === 'cycle')) return trackLayer(lines, style);
+  // A route that is itself orange gets dark cycling stretches instead.
+  const cycle = (style.color ?? COLORS.route).toLowerCase() === CYCLE_COLOR ? '#343a40' : CYCLE_COLOR;
+  return L.featureGroup(parts.map((p) => trackLayer([p.pts], { ...style, ...(p.mode === 'cycle' ? { color: cycle } : {}) })));
 }
 
 export function esc(s) {
