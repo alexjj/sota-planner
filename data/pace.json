@@ -183,6 +183,43 @@
       }
     },
     {
+      "id": "w53qluu",
+      "name": "Beinn Liath Mhor and Sgorr Ruadh",
+      "date": "2026-08-06",
+      "terrain": "moderate",
+      "company": "others",
+      "mode": "walk",
+      "src": "2026-08-06 8059",
+      "distanceKm": 18.37,
+      "ascentM": 1402,
+      "descentM": 1401,
+      "movingMin": 400,
+      "restMin": 126,
+      "stopMin": 45,
+      "sums": {
+        "xtx": [
+          4.8407,
+          3.7072,
+          3.6709,
+          8.3767,
+          0.3609,
+          7.0849
+        ],
+        "xty": [
+          105.3086,
+          88.6749,
+          95.7061
+        ],
+        "n": 70
+      },
+      "fit": {
+        "flat": 14.03,
+        "up": 4.12,
+        "down": 6.03,
+        "rest": 0.315
+      }
+    },
+    {
       "id": "wb7fq9q",
       "name": "Mayar and Driesh",
       "date": "2026-06-22",
