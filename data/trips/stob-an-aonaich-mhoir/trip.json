@@ -1,0 +1,110 @@
+{
+  "routes": [
+    {
+      "id": "r8caf69",
+      "name": "",
+      "gpx": "r8caf69.gpx",
+      "stats": {
+        "distanceKm": 15.48,
+        "ascentM": 669,
+        "descentM": 26,
+        "maxEleM": 850,
+        "start": {
+          "lat": 56.692459,
+          "lon": -4.396698
+        }
+      },
+      "parking": {
+        "label": "Start of GPX route",
+        "lat": 56.692459,
+        "lon": -4.396698
+      },
+      "summits": [
+        "GM/CS-062"
+      ],
+      "hills": [],
+      "terrain": "rough",
+      "company": "others",
+      "bikeDrops": [
+        {
+          "lat": 56.788752,
+          "lon": -4.380359
+        }
+      ]
+    }
+  ],
+  "name": "Stob an Aonaich Mhoir",
+  "tags": [
+    "Corbett",
+    "Bike"
+  ],
+  "notes": "",
+  "links": [
+    {
+      "label": "Route",
+      "url": "https://www.plotaroute.com/route/3478202?units=km"
+    }
+  ],
+  "photos": [
+    {
+      "file": "mwjsq0pa-lsh1-pasted.jpg",
+      "caption": "Parking - 2nd layby"
+    }
+  ],
+  "timetable": {
+    "start": "07:00",
+    "stages": [
+      {
+        "id": "szjp8i",
+        "type": "drive",
+        "label": "",
+        "minutes": 175,
+        "route": "r8caf69"
+      },
+      {
+        "id": "7t1m7e",
+        "type": "cycle",
+        "label": "Cycle in",
+        "minutes": 90,
+        "route": "r8caf69"
+      },
+      {
+        "id": "8kbx4f",
+        "type": "walk",
+        "label": "Walk in",
+        "minutes": 30,
+        "route": "r8caf69"
+      },
+      {
+        "id": "zt36ow",
+        "type": "activate",
+        "label": "",
+        "minutes": 40,
+        "summit": "GM/CS-062"
+      },
+      {
+        "id": "ncpfkb",
+        "type": "walk",
+        "label": "Walk back to the bike",
+        "minutes": 35,
+        "route": "r8caf69"
+      },
+      {
+        "id": "wbhak9",
+        "type": "cycle",
+        "label": "Cycle out",
+        "minutes": 45,
+        "route": "r8caf69"
+      },
+      {
+        "id": "psc9it",
+        "type": "drive",
+        "label": "Drive home",
+        "minutes": 175
+      }
+    ]
+  },
+  "id": "stob-an-aonaich-mhoir",
+  "updated": "2026-11-16T21:51:18.673Z",
+  "created": "2026-11-16T21:51:18.673Z"
+}
