@@ -388,9 +388,21 @@
 
   async function loadGpxFile(r, file) {
     if (!file) return;
-    let text = await file.text();
+    await loadGpxText(r, await file.text(), file.name.replace(/\.gpx$/i, '').replace(/[_-]+/g, ' '), file.name);
+  }
+
+  /** Use a SOTAmaps route as this route's GPX. */
+  async function useSmp(r, t) {
+    if (lines[r.id]?.length && !confirm(`Replace this route's GPX with "${t.title}" from SOTAmaps?`)) return;
+    const text = toGpx([t.points], { name: t.title, src: `SOTAmaps route by ${t.callsign}, posted ${t.posted}` });
+    smpShown[t.id] = false; // it's drawn as the route now
+    await loadGpxText(r, text, t.title, `"${t.title}"`);
+  }
+
+  /** Load GPX text into a route: heights if missing, parking, name, and the timetable. */
+  async function loadGpxText(r, text, nice, what) {
     let parsed = parseGpx(text);
-    if (!parsed.length) { error = `${file.name} has no track or route points.`; return; }
+    if (!parsed.length) { error = `${what} has no track or route points.`; return; }
     error = '';
     const h = await withHeights(r, parsed, text);
     parsed = h.lines;
@@ -399,7 +411,6 @@
     lines[r.id] = parsed;
     const st = gpxStats(parsed);
     if (!r.parking && st.start) setParking(r, { ...st.start }, 'Start of GPX route');
-    const nice = file.name.replace(/\.gpx$/i, '').replace(/[_-]+/g, ' ');
     if (!trip.name) trip.name = nice;
     else if (multi && !r.name) r.name = nice;
     activeId = r.id;
@@ -795,6 +806,8 @@
                             <span>{t.title}
                               <span class="muted">· {t.callsign} · {t.distanceKm} km · {t.ascentM} m · {t.posted.slice(0, 4)}</span></span>
                           </label>
+                          <button class="small use-smp" onclick={() => useSmp(r, t)}
+                                  title="Use this SOTAmaps route as this route's GPX">Use as GPX</button>
                           {#if t.notes}
                             <details><summary class="muted">Notes</summary><p class="smp-notes">{t.notes}</p></details>
                           {/if}
@@ -999,6 +1012,7 @@
   .smp label { display: flex; align-items: baseline; gap: 0.35rem; font-weight: normal; margin: 0; cursor: pointer; }
   .smp .swatch { flex: none; display: inline-block; width: 1.4em; height: 0; border-top: 3px dashed var(--c); transform: translateY(-0.25em); }
   .smp input { flex: none; }
+  .smp .use-smp { margin-left: 1.6rem; }
   .smp details { margin-left: 1.6rem; }
   .smp-notes { white-space: pre-line; margin: 0.2rem 0 0.4rem; }
   .suggest { display: flex; flex-wrap: wrap; gap: 0.3rem; align-items: center; }
