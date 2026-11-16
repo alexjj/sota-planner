@@ -33,7 +33,11 @@ export function parseGpx(text) {
 /** The GPX's track or file name, if it has one. */
 export function gpxName(text) {
   const m = /<(?:trk|rte|metadata)\b[^>]*>\s*<name>([\s\S]*?)<\/name>/.exec(text);
-  return m ? m[1].replace(/<!\[CDATA\[([\s\S]*?)\]\]>/, '$1').trim() : '';
+  if (!m) return '';
+  const cdata = /<!\[CDATA\[([\s\S]*?)\]\]>/.exec(m[1]);
+  if (cdata) return cdata[1].trim();
+  const ents = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
+  return m[1].replace(/&(amp|lt|gt|quot|apos);/g, (_, e) => ents[e]).trim();
 }
 
 function attr(attrs, name) {
@@ -85,6 +89,56 @@ export function gpxStats(lines, threshold = 5) {
  */
 export function naismithMinutes(distanceKm, ascentM, pace = 1) {
   return Math.round(((distanceKm / 5) * 60 + (ascentM / 100) * 10) * pace);
+}
+
+/** True if most points carry an elevation (planned routes from some sites have none). */
+export function hasElevation(lines) {
+  let n = 0, withEle = 0;
+  for (const pts of lines) for (const p of pts) { n++; if (p.ele != null) withEle++; }
+  return n > 0 && withEle >= n / 2;
+}
+
+/**
+ * Add points along each line so none are more than `stepM` metres apart.
+ * New points have no elevation or time. Used before looking heights up, so
+ * the climbs between widely spaced route points aren't missed.
+ */
+export function densify(lines, stepM = 25) {
+  return lines.map((pts) => {
+    const out = [pts[0]];
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i - 1], b = pts[i];
+      const n = Math.floor(distanceM(a, b) / stepM);
+      for (let k = 1; k <= n; k++) {
+        const f = k / (n + 1);
+        out.push({ lat: a.lat + (b.lat - a.lat) * f, lon: a.lon + (b.lon - a.lon) * f, ele: null });
+      }
+      out.push(b);
+    }
+    return out;
+  });
+}
+
+const xml = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+
+/** Write lines out as a GPX 1.1 track. `src` records where the data came from. */
+export function toGpx(lines, { name = '', src = '' } = {}) {
+  const point = (p) => {
+    const inner = (p.ele != null ? `<ele>${round(p.ele, 1)}</ele>` : '')
+      + (p.time != null ? `<time>${new Date(p.time).toISOString()}</time>` : '');
+    return `      <trkpt lat="${round(p.lat, 6)}" lon="${round(p.lon, 6)}">${inner}</trkpt>`;
+  };
+  return [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<gpx version="1.1" creator="SOTA Trip Planner" xmlns="http://www.topografix.com/GPX/1/1">',
+    '  <trk>',
+    ...(name ? [`    <name>${xml(name)}</name>`] : []),
+    ...(src ? [`    <src>${xml(src)}</src>`] : []),
+    ...lines.flatMap((pts) => ['    <trkseg>', ...pts.map(point), '    </trkseg>']),
+    '  </trk>',
+    '</gpx>',
+    '',
+  ].join('\n');
 }
 
 /** Thin a line to points at least `minM` metres apart, for overview maps. */

@@ -12,7 +12,8 @@
   import { driveTime } from '../lib/routing.js';
   import { loadHome } from '../lib/home.js';
   import { showFlash } from '../lib/flash.svelte.js';
-  import { parseGpx, gpxStats, distanceM } from '../lib/gpx.js';
+  import { parseGpx, gpxStats, distanceM, hasElevation, toGpx, gpxName } from '../lib/gpx.js';
+  import { addElevation, ELEVATION_SOURCE } from '../lib/elevation.js';
   import { resizeImage, photoFileName } from '../lib/image.js';
   import { normalizeTrip, blankRoute, routeInfo, routeLabel, stageRouteId, routeStages, newId } from '../lib/trip.js';
   import { getSummitRoutes, SMP_COLORS } from '../lib/sotamaps.js';
@@ -37,6 +38,7 @@
   let notice = $state('');
   let pace = $state.raw({ walks: [] }); // walking pace records (data/pace.json)
   let planning = $state(false);
+  let addingHeights = $state(null); // route id while its heights are being looked up
   let saving = $state(false);
   let pickParking = $state(false);
   let dirty = $state(false);
@@ -353,12 +355,46 @@
   }
 
   // ---- GPX
+  /**
+   * GPX without heights (e.g. planned on Walkhighlands): look them up from terrain
+   * data so ascent and walk times mean something. Returns { lines, text, note }.
+   */
+  async function withHeights(r, parsed, text) {
+    if (hasElevation(parsed)) return { lines: parsed, text, note: '' };
+    addingHeights = r.id;
+    try {
+      const filled = await addElevation(parsed);
+      return {
+        lines: filled,
+        text: toGpx(filled, { name: gpxName(text), src: ELEVATION_SOURCE }),
+        note: 'The GPX had no heights, so they were added from terrain data (about 30 m detail).',
+      };
+    } catch (e) {
+      return { lines: parsed, text, note: `The GPX has no heights and they couldn't be looked up (${e.message}), so ascent is missing.` };
+    } finally {
+      addingHeights = null;
+    }
+  }
+
+  /** "Add heights" for a route already saved without them. */
+  async function addHeights(r) {
+    const { lines: filled, text, note } = await withHeights(r, lines[r.id], toGpx(lines[r.id], { name: routeLabel(r, trip.routes.indexOf(r), summitsData.byRef) }));
+    if (filled === lines[r.id]) { notice = note; return; }
+    lines[r.id] = filled;
+    gpxChanges[r.id] = text;
+    await reestimate(r);
+    notice = `Heights added from terrain data (about 30 m detail). ${notice}`;
+  }
+
   async function loadGpxFile(r, file) {
     if (!file) return;
-    const text = await file.text();
-    const parsed = parseGpx(text);
+    let text = await file.text();
+    let parsed = parseGpx(text);
     if (!parsed.length) { error = `${file.name} has no track or route points.`; return; }
     error = '';
+    const h = await withHeights(r, parsed, text);
+    parsed = h.lines;
+    text = h.text;
     gpxChanges[r.id] = text;
     lines[r.id] = parsed;
     const st = gpxStats(parsed);
@@ -370,8 +406,8 @@
     fitAll();
     planning = true;
     try {
-      notice = (await planRoute(r)) ??
-        'GPX loaded. The timetable already has stages for this route, so they were kept: use "Re-estimate walk times" to update them.';
+      notice = [h.note, (await planRoute(r)) ??
+        'GPX loaded. The timetable already has stages for this route, so they were kept: use "Re-estimate walk times" to update them.'].filter(Boolean).join(' ');
     } finally {
       planning = false;
     }
@@ -781,7 +817,9 @@
             {/if}
 
             <h3>GPX</h3>
-            {#if lines[r.id]?.length && st}
+            {#if addingHeights === r.id}
+              <p class="muted small stat">Looking up heights from terrain data…</p>
+            {:else if lines[r.id]?.length && st}
               <p class="tabular stat">{st.distanceKm} km · {st.ascentM} m ascent · high point {st.maxEleM ?? '?'} m</p>
             {:else}
               <p class="muted small stat">No GPX yet. Export one from plotaroute{multi ? '' : ' and drop it here'}: the timetable fills itself in.</p>
@@ -792,6 +830,11 @@
                 {#each Object.entries(TERRAINS) as [key, label]}<option value={key}>{label}</option>{/each}
               </select>
               {#if est}<span>Walking about <strong>{fmtDuration(est.minutes)}</strong> <span class="muted">({est.basis})</span></span>{/if}
+              {#if lines[r.id]?.length && !hasElevation(lines[r.id])}
+                <button class="small" onclick={() => addHeights(r)} disabled={addingHeights === r.id}
+                        title="This GPX has no heights. Look them up from terrain data so ascent and walk times are right">
+                  {addingHeights === r.id ? 'Adding heights…' : 'Add heights'}</button>
+              {/if}
               {#if lines[r.id]?.length}
                 <button class="small" onclick={() => reestimate(r)} title="Work out this route's walk stages again from the GPX and your pace">Re-estimate walk times</button>
               {/if}
