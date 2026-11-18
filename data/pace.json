@@ -363,6 +363,80 @@
         "down": 2.09,
         "rest": 0.153
       }
+    },
+    {
+      "id": "w2i3jgw",
+      "name": "Ben Vuirich (walk)",
+      "date": "2025-10-30",
+      "terrain": "rough",
+      "company": "fraser",
+      "mode": "walk",
+      "src": "2025-10-30 4099",
+      "distanceKm": 6.49,
+      "ascentM": 590,
+      "descentM": 583,
+      "movingMin": 122,
+      "restMin": 29,
+      "stopMin": 30,
+      "sums": {
+        "xtx": [
+          1.74,
+          1.5751,
+          1.5531,
+          3.8918,
+          0.0718,
+          3.7976
+        ],
+        "xty": [
+          32.2775,
+          42.0771,
+          28.9712
+        ],
+        "n": 24
+      },
+      "fit": {
+        "flat": 8.01,
+        "up": 7.49,
+        "down": 4.21,
+        "rest": 0.238
+      }
+    },
+    {
+      "id": "w6gft9w",
+      "name": "Ben Vuirich (cycle)",
+      "date": "2025-10-30",
+      "terrain": "moderate",
+      "company": "fraser",
+      "mode": "cycle",
+      "src": "2025-10-30 4099",
+      "distanceKm": 16.96,
+      "ascentM": 181,
+      "descentM": 179,
+      "movingMin": 54,
+      "restMin": 4,
+      "stopMin": 0,
+      "sums": {
+        "xtx": [
+          9.8143,
+          0.9935,
+          1.0724,
+          0.2556,
+          0.0712,
+          0.2855
+        ],
+        "xty": [
+          31.0073,
+          3.4781,
+          3.159
+        ],
+        "n": 30
+      },
+      "fit": {
+        "flat": 3.06,
+        "up": 1.97,
+        "down": -0.93,
+        "rest": 0.074
+      }
     }
   ]
 }
