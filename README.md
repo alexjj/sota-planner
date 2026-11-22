@@ -105,6 +105,24 @@ data/
 Trips saved in the original single-route format (`data/routes/<id>/route.json`)
 are converted to this layout automatically when the edit server starts.
 
+## Goals
+
+**Goals** (in the header) groups summits into things to work through, each with a progress bar:
+activated out of total (from your activator log, below), how many more are planned in trips, and
+points. Open a goal for a map of its summits (activated faded, planned ringed) and a list of the ones
+left, nearest to home first (or by points), with links to SOTLAS, Walkhighlands, the trip planning
+it, or **+ New trip**.
+
+A goal is a rule, hand-picked summits, or both. A rule is any of: regions (GM/CS, GM/WS, ...), being
+a Munro, Corbett or Graham too, and a minimum number of points; an empty part matches anything, so
+an empty rule is every GM summit. Not every Munro is a SOTA summit, so a Munros goal only counts the
+ones that are (the card says how many it leaves out). **Uncategorised** at the end is every GM summit
+in none of your goals (a goal of every summit doesn't count, or nothing would ever be left).
+
+Until you save your own, you get starting goals: all of GM, the SOTA Munros and each region. Use
+**Edit goals** to rename, reorder, delete or add goals, then **Save goals**: they go in
+`data/goals.json`, in local and GitHub mode like walking pace.
+
 ## Your activated summits
 
 `SOTA_USER_ID` in `.env` is your SOTA database user id: the number in your activator log address,

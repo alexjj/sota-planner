@@ -3,6 +3,7 @@
   import TripView from './pages/TripView.svelte';
   import TripEdit from './pages/TripEdit.svelte';
   import Settings from './pages/Settings.svelte';
+  import Goals from './pages/Goals.svelte';
   import GitHubSettings from './components/GitHubSettings.svelte';
   import { getStatus, publish } from './lib/store.js';
   import { flash } from './lib/flash.svelte.js';
@@ -32,6 +33,7 @@
     if (isTrip && parts[1]) return { name: 'view', id: parts[1] };
     if (parts[0] === 'new') return { name: 'new', summit: query.get('summit') };
     if (parts[0] === 'settings') return { name: 'settings' };
+    if (parts[0] === 'goals') return { name: 'goals' };
     return { name: 'home' };
   });
 
@@ -63,6 +65,7 @@
         </button>
       {/if}
     {/if}
+    <a class="button" href="#/goals" title="Summit goals and your progress">Goals</a>
     <a class="button" href="#/settings" title="Home location and walking pace">Settings</a>
     {#if status && status.mode !== 'local'}
       <button class="gh" class:muted={!status.edit} onclick={() => (showGitHub = true)}
@@ -99,6 +102,8 @@
         <TripEdit summit={page.summit} />
       {:else if page.name === 'settings'}
         <Settings />
+      {:else if page.name === 'goals'}
+        <Goals />
       {:else}
         <Home edit={status.edit} />
       {/if}

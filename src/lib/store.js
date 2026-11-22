@@ -1,6 +1,7 @@
 import { normalizeTrip } from './trip.js';
 import * as github from './github.js';
 import { cleanPace } from './pace.js';
+import { cleanGoals } from './goals.js';
 
 // Loading and saving data. There are three modes:
 //   local  - `npm run edit` / `npm run serve`: the edit API reads and writes data/ on disk
@@ -125,6 +126,26 @@ export async function savePace(pace) {
     return clean;
   }
   return api('PUT', 'api/pace', pace);
+}
+
+/** Goals (data/goals.json): { goals: [...] }, or null if there isn't a file yet (use defaultGoals). */
+export async function getGoals() {
+  await getStatus();
+  if (mode === 'github') {
+    const text = await github.readFile(gh, 'data/goals.json');
+    return text ? JSON.parse(text) : null;
+  }
+  return loadJson('data/goals.json').catch(() => null);
+}
+
+export async function saveGoals(goals) {
+  await getStatus();
+  if (mode === 'github') {
+    const clean = cleanGoals(goals);
+    await github.saveFile(gh, 'data/goals.json', JSON.stringify(clean, null, 2) + '\n', 'Update goals');
+    return clean;
+  }
+  return api('PUT', 'api/goals', goals);
 }
 
 async function api(method, url, body) {
