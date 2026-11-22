@@ -26,10 +26,10 @@
     },
     {
       "id": "rvmyish",
-      "name": "",
+      "name": "Vrackie",
       "gpx": "rvmyish.gpx",
       "stats": {
-        "distanceKm": 3.1,
+        "distanceKm": 2.44,
         "ascentM": 242,
         "descentM": 5,
         "maxEleM": 447,
@@ -59,12 +59,12 @@
             "lon": -3.032613
           },
           {
-            "lat": 56.539934,
-            "lon": -3.025382
+            "lat": 56.541812,
+            "lon": -3.028622
           },
           {
-            "lat": 56.545672,
-            "lon": -3.034029
+            "lat": 56.544604,
+            "lon": -3.023515
           },
           {
             "lat": 56.547115,
@@ -165,6 +165,6 @@
     ]
   },
   "id": "vrackie-on-es-day",
-  "updated": "2026-11-22T14:02:10.254Z",
+  "updated": "2026-11-22T14:46:44.248Z",
   "created": "2026-11-11T21:45:00.559Z"
 }
