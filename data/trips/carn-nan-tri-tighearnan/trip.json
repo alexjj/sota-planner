@@ -1,0 +1,80 @@
+{
+  "routes": [
+    {
+      "id": "rhoz12v",
+      "name": "",
+      "gpx": "rhoz12v.gpx",
+      "stats": {
+        "distanceKm": 4.41,
+        "ascentM": 393,
+        "descentM": 25,
+        "maxEleM": 609,
+        "start": {
+          "lat": 57.423699,
+          "lon": -3.89978
+        }
+      },
+      "parking": {
+        "label": "Start of GPX route",
+        "lat": 57.423699,
+        "lon": -3.89978
+      },
+      "summits": [
+        "GM/CS-097"
+      ],
+      "hills": []
+    }
+  ],
+  "name": "Carn Nan Tri tighearnan",
+  "tags": [],
+  "notes": "",
+  "links": [],
+  "photos": [
+    {
+      "file": "mwsdgd8w-0jz4-pasted.jpg",
+      "caption": "Parking on verge"
+    }
+  ],
+  "timetable": {
+    "start": "07:00",
+    "stages": [
+      {
+        "id": "m5upk3",
+        "type": "drive",
+        "label": "",
+        "minutes": 145,
+        "route": "rhoz12v"
+      },
+      {
+        "id": "lqai9l",
+        "type": "walk",
+        "label": "Walk in",
+        "minutes": 75,
+        "route": "rhoz12v"
+      },
+      {
+        "id": "o3a16s",
+        "type": "activate",
+        "label": "",
+        "minutes": 40,
+        "summit": "GM/CS-097"
+      },
+      {
+        "id": "c94cff",
+        "type": "walk",
+        "label": "Walk back",
+        "minutes": 65,
+        "route": "rhoz12v"
+      },
+      {
+        "id": "t6kmq8",
+        "type": "drive",
+        "label": "Drive home",
+        "minutes": 145
+      }
+    ]
+  },
+  "id": "carn-nan-tri-tighearnan",
+  "updated": "2026-11-22T21:52:36.599Z",
+  "created": "2026-11-22T21:52:36.599Z"
+}
