@@ -1,12 +1,18 @@
 <script>
   import Home from './pages/Home.svelte';
   import TripView from './pages/TripView.svelte';
-  import TripEdit from './pages/TripEdit.svelte';
-  import Settings from './pages/Settings.svelte';
-  import Goals from './pages/Goals.svelte';
   import GitHubSettings from './components/GitHubSettings.svelte';
   import { getStatus, publish } from './lib/store.js';
   import { flash } from './lib/flash.svelte.js';
+
+  // Pages most visitors never open load on first use, so the public site
+  // (home and trip pages) starts smaller. Each import runs once and is cached.
+  const lazy = (load) => { let p; return () => (p ??= load()); };
+  const pages = {
+    edit: lazy(() => import('./pages/TripEdit.svelte')),
+    settings: lazy(() => import('./pages/Settings.svelte')),
+    goals: lazy(() => import('./pages/Goals.svelte')),
+  };
 
   let hash = $state(location.hash);
   let status = $state(null); // pages wait for this: it decides where data is read from
@@ -96,14 +102,14 @@
     {#key page.name + (page.id ?? '')}
       {#if page.name === 'view'}
         <TripView id={page.id} edit={status.edit} />
-      {:else if page.name === 'edit'}
-        <TripEdit id={page.id} />
-      {:else if page.name === 'new'}
-        <TripEdit summit={page.summit} />
+      {:else if page.name === 'edit' || page.name === 'new'}
+        {#await pages.edit() then { default: TripEdit }}
+          <TripEdit id={page.id} summit={page.summit} />
+        {:catch e}{@render loadFailed(e)}{/await}
       {:else if page.name === 'settings'}
-        <Settings />
+        {#await pages.settings() then { default: Settings }}<Settings />{:catch e}{@render loadFailed(e)}{/await}
       {:else if page.name === 'goals'}
-        <Goals />
+        {#await pages.goals() then { default: Goals }}<Goals />{:catch e}{@render loadFailed(e)}{/await}
       {:else}
         <Home edit={status.edit} />
       {/if}
@@ -111,6 +117,10 @@
     {/if}
   </main>
 </div>
+
+{#snippet loadFailed(e)}
+  <p class="load-failed">Couldn't load this page ({e.message}). <a href={location.href} onclick={() => location.reload()}>Reload</a></p>
+{/snippet}
 
 <style>
   .shell { display: flex; flex-direction: column; height: 100%; }
@@ -137,5 +147,6 @@
   }
   .flash span { flex: 1; }
   .gh.muted { color: var(--muted); }
+  .load-failed { padding: 1rem; }
   .publish-log pre { flex: 1; margin: 0; font-size: 0.8rem; white-space: pre-wrap; max-height: 12rem; overflow: auto; }
 </style>
