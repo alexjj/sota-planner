@@ -23,61 +23,6 @@
         "GM/CS-065"
       ],
       "hills": []
-    },
-    {
-      "id": "rvmyish",
-      "name": "Vrackie",
-      "gpx": "rvmyish.gpx",
-      "stats": {
-        "distanceKm": 2.44,
-        "ascentM": 242,
-        "descentM": 5,
-        "maxEleM": 447,
-        "start": {
-          "lat": 56.534222,
-          "lon": -3.034013
-        }
-      },
-      "parking": {
-        "label": "Start of GPX route",
-        "lat": 56.534222,
-        "lon": -3.034013
-      },
-      "summits": [
-        "GM/SS-192"
-      ],
-      "hills": [],
-      "terrain": "easy",
-      "drawn": {
-        "points": [
-          {
-            "lat": 56.534231,
-            "lon": -3.034008
-          },
-          {
-            "lat": 56.536042,
-            "lon": -3.032613
-          },
-          {
-            "lat": 56.541812,
-            "lon": -3.028622
-          },
-          {
-            "lat": 56.544604,
-            "lon": -3.023515
-          },
-          {
-            "lat": 56.547115,
-            "lon": -3.015532
-          }
-        ],
-        "modes": [
-          "path",
-          "path",
-          "path",
-          "path"
-        ]
-      }
     }
   ],
   "name": "Vrackie",
@@ -129,34 +74,6 @@
         "route": "rg7dapk"
       },
       {
-        "id": "p60ip0",
-        "type": "drive",
-        "label": "",
-        "minutes": 75,
-        "route": "rvmyish"
-      },
-      {
-        "id": "cn887d",
-        "type": "walk",
-        "label": "Walk in",
-        "minutes": 50,
-        "route": "rvmyish"
-      },
-      {
-        "id": "k8dyj9",
-        "type": "activate",
-        "label": "",
-        "minutes": 40,
-        "summit": "GM/SS-192"
-      },
-      {
-        "id": "axw6df",
-        "type": "walk",
-        "label": "Walk back",
-        "minutes": 45,
-        "route": "rvmyish"
-      },
-      {
         "id": "7bhhix",
         "type": "drive",
         "label": "Drive home",
@@ -165,6 +82,6 @@
     ]
   },
   "id": "vrackie-on-es-day",
-  "updated": "2026-11-22T14:46:44.248Z",
+  "updated": "2026-11-22T15:33:26.993Z",
   "created": "2026-11-11T21:45:00.559Z"
 }
