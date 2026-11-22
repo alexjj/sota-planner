@@ -1,5 +1,8 @@
-// Goals: groups of SOTA summits to work through (a region, the SOTA Munros, a
-// hand-picked list), with progress from your activations and planned trips.
+// Goals: groups of SOTA summits to work through (a region, a hand-picked list),
+// with progress from your activations and planned trips. A goal can instead be
+// every hill of a type (e.g. all 282 Munros): a hill is done when its SOTA summit
+// is activated or you've ticked it off by hand (for hills that aren't SOTA summits,
+// or that you climbed without activating).
 // Saved in data/goals.json. Shared by the browser and the edit server, so no
 // browser- or Node-only APIs here.
 
@@ -30,14 +33,50 @@ export function hillTypesByRef(hills) {
 const emptyRule = (r) => !r.regions?.length && !r.hills?.length && !(r.minPoints > 0);
 
 /** A goal that is every GM summit (a rule with nothing narrowing it). */
-export const isEverything = (goal) => !!goal.rule && emptyRule(goal.rule);
+export const isEverything = (goal) => !isHillGoal(goal) && !!goal.rule && emptyRule(goal.rule);
+
+/** A goal that is every hill of one type (goal.hillList: 'Munro', 'Corbett' or 'Graham'). */
+export const isHillGoal = (goal) => HILL_TYPES.includes(goal.hillList);
+
+/** The hills in a hill goal. */
+export function goalHills(goal, hills) {
+  return hills.filter((h) => h.type === goal.hillList);
+}
 
 /**
- * Does a summit belong to a goal? A goal has a rule (all of: in one of these
+ * How a hill was done: 'ticked' (by hand), 'activated' (its SOTA summit is in the
+ * activator log), or null.
+ * @param ticks { [hillId]: 'YYYY-MM-DD' }
+ */
+export function hillDone(h, activated, ticks) {
+  if (ticks?.[h.id]) return 'ticked';
+  if (h.sota && activated?.has(h.sota)) return 'activated';
+  return null;
+}
+
+/**
+ * Progress through a hill goal.
+ * @param plannedHills Set of hill ids in trips not yet done; a hill whose SOTA
+ *   summit is planned counts too
+ */
+export function hillProgress(list, activated, ticks, planned, plannedHills) {
+  let done = 0, ticked = 0, viaSota = 0, plannedCount = 0;
+  for (const h of list) {
+    const how = hillDone(h, activated, ticks);
+    if (how) { done++; if (how === 'ticked') ticked++; else viaSota++; }
+    else if (plannedHills?.has(h.id) || (h.sota && planned?.has(h.sota))) plannedCount++;
+  }
+  return { total: list.length, done, ticked, activated: viaSota, planned: plannedCount };
+}
+
+/**
+ * Does a summit belong to a goal? A hill goal holds the SOTA summits that are
+ * hills of its type. Otherwise a goal has a rule (all of: in one of these
  * regions, one of these hill types, at least this many points; an empty part
  * matches anything) and/or a hand-picked list of refs.
  */
 export function inGoal(goal, s, types) {
+  if (isHillGoal(goal)) return !!types.get(s.ref)?.has(goal.hillList);
   if (goal.refs?.includes(s.ref)) return true;
   const r = goal.rule;
   if (!r) return false;
@@ -75,11 +114,11 @@ export function progress(list, activated, planned) {
 let seq = 0;
 export const goalId = () => `g${Date.now().toString(36)}${(seq++).toString(36)}`;
 
-/** Goals to start with: all of GM, the SOTA Munros, and each region. */
+/** Goals to start with: all of GM, all the Munros, and each region. */
 export function defaultGoals(summits) {
   return [
     { id: 'all', name: 'All GM summits', rule: { regions: [], hills: [], minPoints: 0 }, refs: [] },
-    { id: 'munros', name: 'SOTA Munros', rule: { regions: [], hills: ['Munro'], minPoints: 0 }, refs: [] },
+    { id: 'munros', name: 'Munros', hillList: 'Munro', rule: null, refs: [] },
     ...Object.entries(regionNames(summits)).map(([code, name]) => (
       { id: `region-${code}`, name: `GM/${code} ${name}`, rule: { regions: [code], hills: [], minPoints: 0 }, refs: [] })),
   ];
@@ -87,6 +126,7 @@ export function defaultGoals(summits) {
 
 /** A short description of a goal's rule, e.g. "Munros in CS, WS · 6+ points · 3 picked". */
 export function describeGoal(goal) {
+  if (isHillGoal(goal)) return `Every ${goal.hillList}: SOTA activations count, tick off the rest`;
   const parts = [];
   const r = goal.rule;
   if (r) {
@@ -106,10 +146,17 @@ export function cleanGoals(body) {
   const list = Array.isArray(body?.goals) ? body.goals : [];
   const str = (v, n) => String(v ?? '').slice(0, n);
   const ref = /^[A-Z0-9]+\/[A-Z]{2}-\d{3}$/;
+  // Hills ticked off by hand: DoBIH number -> date ticked (YYYY-MM-DD).
+  const ticks = {};
+  for (const [id, date] of Object.entries(body?.ticks ?? {}).slice(0, 5000)) {
+    if (/^\d{1,6}$/.test(id) && date) ticks[id] = /^\d{4}-\d\d-\d\d$/.test(date) ? date : new Date().toISOString().slice(0, 10);
+  }
   return {
+    ticks,
     goals: list.slice(0, 100).map((g) => ({
       id: str(g.id, 40).replace(/[^\w-]/g, '') || goalId(),
       name: str(g.name, 80).trim() || 'Goal',
+      ...(HILL_TYPES.includes(g.hillList) ? { hillList: g.hillList } : {}),
       rule: g.rule ? {
         regions: (Array.isArray(g.rule.regions) ? g.rule.regions : []).map((c) => str(c, 4).toUpperCase()).filter((c) => /^[A-Z]{2}$/.test(c)),
         hills: (Array.isArray(g.rule.hills) ? g.rule.hills : []).filter((t) => HILL_TYPES.includes(t)),

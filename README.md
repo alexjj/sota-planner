@@ -115,11 +115,17 @@ it, or **+ New trip**.
 
 A goal is a rule, hand-picked summits, or both. A rule is any of: regions (GM/CS, GM/WS, ...), being
 a Munro, Corbett or Graham too, and a minimum number of points; an empty part matches anything, so
-an empty rule is every GM summit. Not every Munro is a SOTA summit, so a Munros goal only counts the
-ones that are (the card says how many it leaves out). **Uncategorised** at the end is every GM summit
+an empty rule is every GM summit.
+
+A goal can instead be **every Munro** (or Corbett, or Graham) from the hill list: all 282 Munros,
+not just the 202 that are SOTA summits. A hill counts as done when its SOTA summit is in your
+activator log, or when you tick it off in the goal's list (for the 80 Munros that aren't SOTA
+summits, or one you climbed without activating). Ticks are dated, show on the map, and can be
+unticked from the "done" list; they're saved in `data/goals.json` with **Save ticks**. The starting
+**Munros** goal works this way. **Uncategorised** at the end is every GM summit
 in none of your goals (a goal of every summit doesn't count, or nothing would ever be left).
 
-Until you save your own, you get starting goals: all of GM, the SOTA Munros and each region. Use
+Until you save your own, you get starting goals: all of GM, every Munro and each region. Use
 **Edit goals** to rename, reorder, delete or add goals, then **Save goals**: they go in
 `data/goals.json`, in local and GitHub mode like walking pace.
 

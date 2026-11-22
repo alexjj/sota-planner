@@ -41,8 +41,10 @@ delete. Change save behaviour there, not in one backend only.
 - A route may have `waypoints` ([{id, label, minutes, lat, lon}]). `plan.js` `routeStops` splits the walk at summits,
   hills and waypoints on the track (first pass of each); `walkStages` returns `arrivals` (minutes to each stop).
   Waypoint stops become `break` stages with `waypoint: id`, which re-estimate treats as planned stages.
-- **Goals** (`data/goals.json`, `src/lib/goals.js`): `{ goals: [{ id, name, rule: { regions, hills, minPoints } | null, refs }] }`.
-  A summit is in a goal if it's hand-picked or matches every non-empty part of the rule. No file means
+- **Goals** (`data/goals.json`, `src/lib/goals.js`): `{ goals: [{ id, name, rule: { regions, hills, minPoints } | null, refs, hillList? }], ticks }`.
+  A summit is in a goal if it's hand-picked or matches every non-empty part of the rule. A goal with `hillList`
+  ('Munro' etc.) is every DoBIH hill of that type instead: done if its SOTA summit is activated or it's in
+  `ticks` ({ hillId: 'YYYY-MM-DD' }, ticked off by hand). No file means
   `defaultGoals`. Saved via `PUT /api/goals` or `github.saveFile`; `cleanGoals` validates it for both.
 - A route drawn in the editor has `drawn: { points: [{lat, lon}], modes: ['path'|'line'] }` (one mode per stretch)
   so it can be edited again; its GPX is still the source of truth. `src/lib/draw.js` (browser only) follows
