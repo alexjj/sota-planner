@@ -328,7 +328,7 @@
                     <td class="links">
                       {#each hillTrips.get(h.id) ?? plannedTrips.get(h.sota) ?? [] as t}<a href="#/trip/{encodeURIComponent(t.id)}" class="planned-text" title="Planned in this trip">{t.name}</a>{/each}
                       <a href={hl.hillBagging} target="_blank" rel="noopener">Hill Bagging</a>
-                      <a href={hl.walkhighlands} target="_blank" rel="noopener">WH</a>
+                      <a href={hl.walkhighlands} target="_blank" rel="noopener" title={hl.whTitle}>{hl.walks.length ? 'WalkHighlands' : 'Search WH'}</a>
                       {#if h.sota && status?.edit && !how && !plannedTrips.has(h.sota)}<a href="#/new?summit={encodeURIComponent(h.sota)}">+ New trip</a>{/if}
                     </td>
                   </tr>
@@ -367,7 +367,7 @@
                           <td class="links">
                             {#each plannedTrips.get(s.ref) ?? [] as t}<a href="#/trip/{encodeURIComponent(t.id)}" class="planned-text" title="Planned in this trip">{t.name}</a>{/each}
                             <a href={l.sotlas} target="_blank" rel="noopener">SOTLAS</a>
-                            <a href={l.walkhighlands} target="_blank" rel="noopener">WH</a>
+                            <a href={l.walkhighlands} target="_blank" rel="noopener" title={l.whTitle}>{l.walks.length ? 'WalkHighlands' : 'Search WH'}</a>
                             {#if status?.edit && !plannedTrips.has(s.ref)}<a href="#/new?summit={encodeURIComponent(s.ref)}">+ New trip</a>{/if}
                           </td>
                         </tr>

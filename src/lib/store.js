@@ -149,6 +149,9 @@ export async function saveGoals(goals) {
   return api('PUT', 'api/goals', goals);
 }
 
+/** Walkhighlands walks over each summit and hill (data/walkhighlands.json), or null. */
+export const getWalkhighlands = once(() => loadJson('data/walkhighlands.json').catch(() => null));
+
 /**
  * Surveyed activation zones from LiDAR (data/zones-lidar.json, made by
  * `npm run import-zones`): { [ref]: zone }. These win over worked-out ones.

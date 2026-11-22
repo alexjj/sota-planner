@@ -262,17 +262,59 @@ export function walkhighlandsSearch(name) {
   return `https://duckduckgo.com/?q=${encodeURIComponent(q).replace(/%20/g, '+')}`;
 }
 
-/** Links for a DoBIH hill: Hill Bagging page and a Walkhighlands search. */
+// Walkhighlands walks that go over each summit and hill (data/walkhighlands.json,
+// from `npm run import-walkhighlands`), set once at start-up by App.svelte.
+let wh = null;
+export function setWalkhighlands(data) { wh = data; }
+
+/** Walk ids -> [{ name, url, km, grade }], closest to the top first. */
+function whWalks(ids) {
+  return (ids ?? []).map((id) => wh?.walks?.[id]).filter(Boolean).map(([name, path, km, grade]) => ({
+    name, url: `https://www.walkhighlands.co.uk/${path.split('/').map(encodeURIComponent).join('/')}.shtml`, km, grade,
+  }));
+}
+
+/**
+ * Walkhighlands link fields: walkhighlands is the best walk's page (or a search
+ * when no walk goes over it), whLabel what to call it, whTitle a hover text
+ * naming the walks, walks all of them.
+ */
+function whFields(walks, name) {
+  if (!walks.length) {
+    return { walkhighlands: walkhighlandsSearch(name), whLabel: 'Search WH', whTitle: 'Search Walkhighlands', walks };
+  }
+  const describe = (w) => `${w.name}${w.km ? ` (${w.km} km${w.grade ? `, grade ${w.grade}` : ''})` : ''}`;
+  return {
+    walkhighlands: walks[0].url,
+    whLabel: 'WalkHighlands',
+    whTitle: `Walkhighlands: ${describe(walks[0])}${walks.length > 1 ? `. Also: ${walks.slice(1).map(describe).join('; ')}` : ''}`,
+    walks,
+  };
+}
+
+/** Links for a DoBIH hill: Hill Bagging page and its Walkhighlands walk. */
 export function hillLinks(h) {
+  let walks = whWalks(wh?.hills?.[h.id]);
+  if (!walks.length && h.sota) walks = whWalks(wh?.summits?.[h.sota]);
   return {
     hillBagging: `https://www.hill-bagging.co.uk/hill-view/?qu=S&rf=${h.id}`,
-    walkhighlands: walkhighlandsSearch(h.name),
+    ...whFields(walks, h.name),
   };
 }
 
 export function summitLinks(ref, name = '') {
   return {
     sotlas: `https://sotl.as/summits/${ref}`,
-    walkhighlands: walkhighlandsSearch(name),
+    ...whFields(whWalks(wh?.summits?.[ref]), name),
   };
+}
+
+/**
+ * Walkhighlands links for a map popup: each walk by name (up to three), or a
+ * search link when none goes over it.
+ */
+export function whPopupLinks(l) {
+  if (!l.walks.length) return `<a href="${l.walkhighlands}" target="_blank" rel="noopener">Search WH</a>`;
+  return l.walks.slice(0, 3).map((w) =>
+    `<a href="${esc(w.url)}" target="_blank" rel="noopener" title="${esc(`${w.km ?? '?'} km, grade ${w.grade ?? '?'} of 5`)}">WalkHighlands${l.walks.length > 1 ? `: ${esc(w.name)}` : ''}</a>`).join('');
 }

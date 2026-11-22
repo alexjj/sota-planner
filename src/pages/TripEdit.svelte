@@ -1,7 +1,7 @@
 <script>
   import { onMount, tick } from 'svelte';
   import L from 'leaflet';
-  import { createMap, summitMarker, hillMarker, parkingMarker, trackLayer, routeTrack, esc, summitLinks, hillLinks, sizeSummitsOnZoom, mapZoom } from '../lib/map.js';
+  import { createMap, summitMarker, hillMarker, parkingMarker, trackLayer, routeTrack, esc, summitLinks, hillLinks, whPopupLinks, sizeSummitsOnZoom, mapZoom } from '../lib/map.js';
   import {
     getSummits, getHills, getTrip, getIndex, getGpxText, photoUrl, parseLatLon, googleMapsPlaceUrl,
     createTrip, saveTrip, deleteTrip, getStatus, getPace,
@@ -410,13 +410,13 @@
       div.innerHTML = `<h4><span class="ref">${esc(item.ref)}</span> ${esc(item.name)}</h4>
         <div class="muted">${item.alt} m · ${item.points} pts${item.bonus ? ` (+${item.bonus} winter)` : ''} · ${item.activations} activations</div>
         <div class="row small"><a href="${l.sotlas}" target="_blank" rel="noopener">SOTLAS</a>
-          <a href="${l.walkhighlands}" target="_blank" rel="noopener">Search WH</a></div>`;
+          ${whPopupLinks(l)}</div>`;
     } else {
       const l = hillLinks(item);
       div.innerHTML = `<h4>${esc(item.name)}</h4>
         <div class="muted">${esc(item.type)} · ${Math.round(item.alt)} m</div>
         <div class="row small"><a href="${l.hillBagging}" target="_blank" rel="noopener">Hill Bagging</a>
-          <a href="${l.walkhighlands}" target="_blank" rel="noopener">Search WH</a></div>`;
+          ${whPopupLinks(l)}</div>`;
     }
     if (holder || active) {
       const b = document.createElement('button');
@@ -1044,13 +1044,13 @@
                 {@const l = summitLinks(s.ref, s.name)}
                 <span class="chip summit"><span class="ref">{s.ref}</span> {s.name}
                   <a class="chip-link" href={l.sotlas} target="_blank" rel="noopener" title="Open on SOTLAS">SOTLAS</a>
-                  <a class="chip-link" href={l.walkhighlands} target="_blank" rel="noopener" title="Search Walkhighlands">WH</a>
+                  <a class="chip-link" href={l.walkhighlands} target="_blank" rel="noopener" title={l.whTitle}>WH</a>
                   <button class="small icon" onclick={() => removeFrom(r, 'summit', ref)} aria-label="Remove">✕</button></span>
               {/each}
               {#each r.hills as hid}
                 {@const h = hill(hid)}
                 <span class="chip hill">{h?.name ?? hid} <span class="muted">{h?.type}</span>
-                  {#if h}<a class="chip-link" href={hillLinks(h).walkhighlands} target="_blank" rel="noopener" title="Search Walkhighlands">WH</a>{/if}
+                  {#if h}{@const hl = hillLinks(h)}<a class="chip-link" href={hl.walkhighlands} target="_blank" rel="noopener" title={hl.whTitle}>WH</a>{/if}
                   <button class="small icon" onclick={() => removeFrom(r, 'hill', hid)} aria-label="Remove">✕</button></span>
               {/each}
               {#if !r.summits.length && !r.hills.length}<span class="muted small">None yet. Search above, or click them on the map.</span>{/if}

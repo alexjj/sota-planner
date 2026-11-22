@@ -1,3 +1,5 @@
 node_modules/
 dist/
 .claude/settings.local.json
+# Walkhighlands tracks are their copyright: kept locally, only the walk list is published
+sources/walkhighlands/

@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import L from 'leaflet';
-  import { createMap, summitMarker, hillMarker, parkingMarker, trackLayer, routeTrack, esc, summitLinks, sizeSummitsOnZoom, mapZoom } from '../lib/map.js';
+  import { createMap, summitMarker, hillMarker, parkingMarker, trackLayer, routeTrack, esc, summitLinks, whPopupLinks, sizeSummitsOnZoom, mapZoom } from '../lib/map.js';
   import { getSummits, getHills, getTrip, getGpxText, gpxUrl, photoUrl, googleMapsUrl, getPace, getZones, saveZones, getLidarZones } from '../lib/store.js';
   import { activationZone, ZONE_SOURCE } from '../lib/elevation.js';
   import { zoneCurrent, ZONE_DROP } from '../lib/zones.js';
@@ -183,7 +183,7 @@
               <div class="muted">${s.alt} m · ${s.points} pts</div>
               <div class="row small">
                 <a href="${summitLinks(s.ref).sotlas}" target="_blank" rel="noopener">SOTLAS</a>
-                <a href="${summitLinks(s.ref, s.name).walkhighlands}" target="_blank" rel="noopener">Search WH</a>
+                ${whPopupLinks(summitLinks(s.ref, s.name))}
               </div>`);
           bounds.extend([s.lat, s.lon]);
           if (!zoneColors.has(ref)) zoneColors.set(ref, ri.color);
@@ -240,6 +240,7 @@
             <ul class="plain">
               {#each r.summits as ref}
                 {@const s = summit(ref)}
+                {@const wl = summitLinks(s.ref, s.name)}
                 <li>
                   <span class="chip summit"><span class="ref">{s.ref}</span></span>
                   {s.name}
@@ -252,7 +253,7 @@
                     <span class="muted small" title="Couldn't load terrain heights">· AZ unavailable</span>
                   {/if}
                   <a class="small" href={summitLinks(s.ref).sotlas} target="_blank" rel="noopener">SOTLAS</a>
-                  <a class="small" href={summitLinks(s.ref, s.name).walkhighlands} target="_blank" rel="noopener">Search WH</a>
+                  <a class="small" href={wl.walkhighlands} target="_blank" rel="noopener" title={wl.whTitle}>{wl.whLabel}</a>
                 </li>
               {/each}
               {#each r.hills as hid}

@@ -2,7 +2,8 @@
   import Home from './pages/Home.svelte';
   import TripView from './pages/TripView.svelte';
   import GitHubSettings from './components/GitHubSettings.svelte';
-  import { getStatus, publish } from './lib/store.js';
+  import { getStatus, publish, getWalkhighlands } from './lib/store.js';
+  import { setWalkhighlands } from './lib/map.js';
   import { flash } from './lib/flash.svelte.js';
 
   // Pages most visitors never open load on first use, so the public site
@@ -20,7 +21,11 @@
   let publishing = $state(false);
   let publishLog = $state('');
 
-  getStatus().then((s) => (status = s));
+  // Pages wait for the Walkhighlands walk list too, so summit links can use it (it's small).
+  Promise.all([getStatus(), getWalkhighlands()]).then(([s, w]) => {
+    setWalkhighlands(w);
+    status = s;
+  });
 
   $effect(() => {
     const onHash = () => { hash = location.hash; };

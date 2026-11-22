@@ -4,7 +4,7 @@
   // planned ringed, still to do in the hill colour). Popups link out and to new trips.
   import { onMount } from 'svelte';
   import L from 'leaflet';
-  import { createMap, summitMarker, hillMarker, sizeSummitsOnZoom, summitLinks, hillLinks, esc, COLORS } from '../lib/map.js';
+  import { createMap, summitMarker, hillMarker, sizeSummitsOnZoom, summitLinks, hillLinks, whPopupLinks, esc, COLORS } from '../lib/map.js';
   import { hillDone } from '../lib/goals.js';
 
   let { summits = [], hills = null, activated, planned, plannedHills = null, ticks = {}, edit = false } = $props();
@@ -22,7 +22,7 @@
       <div class="muted">${s.alt} m · ${s.points} pts${done ? ` · activated ${done.count === 1 ? 'once' : `${done.count} times`}, last ${esc(done.last)}` : ''}</div>
       <div class="row small">
         <a href="${l.sotlas}" target="_blank" rel="noopener">SOTLAS</a>
-        <a href="${l.walkhighlands}" target="_blank" rel="noopener">Search WH</a>
+        ${whPopupLinks(l)}
         ${edit ? `<a href="#/new?summit=${encodeURIComponent(s.ref)}">+ New trip</a>` : ''}
       </div>`);
   }
@@ -41,7 +41,7 @@
       <div class="muted">${h.type} · ${Math.round(h.alt)} m${h.sota ? ` · SOTA ${esc(h.sota)}` : ' · not a SOTA summit'}${what}</div>
       <div class="row small">
         <a href="${l.hillBagging}" target="_blank" rel="noopener">Hill Bagging</a>
-        <a href="${l.walkhighlands}" target="_blank" rel="noopener">Search WH</a>
+        ${whPopupLinks(l)}
         ${edit && h.sota ? `<a href="#/new?summit=${encodeURIComponent(h.sota)}">+ New trip</a>` : ''}
       </div>`);
   }

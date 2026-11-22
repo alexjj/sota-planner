@@ -317,6 +317,24 @@ import stops without overwriting anything. That makes the monthly run show as
 failed, and GitHub emails you. Both lists change rarely, so a big drop almost
 certainly means a broken download.
 
+## Walkhighlands links
+
+Summit and hill links say **WalkHighlands** and go straight to the Walkhighlands walk that goes
+over the summit, closest to the top first. That includes the Munros, Corbetts and Grahams that
+aren't SOTA summits. Hover over a link to see the walk's distance and grade, plus any other walks
+over the same hill. Map popups list each walk by name. A summit with no matching walk keeps a
+**Search WH** link to a web search.
+
+The matches are in `data/walkhighlands.json`, which holds only each walk's name, page, distance and
+grade, never its track, since Walkhighlands' routes are their copyright. A walk matches when its
+track passes within 100 m of the summit. To refresh it, for example after Walkhighlands adds walks
+or after `npm run import-data`:
+
+1. Open <https://www.walkhighlands.co.uk/full.geojson> in a browser and save it as
+   `sources/walkhighlands/full.geojson`. Their bot check blocks scripts, and the folder is kept out
+   of git.
+2. Run `npm run import-walkhighlands` and commit `data/walkhighlands.json`.
+
 ## Settings: home and walking pace
 
 Open **Settings** at the top right.

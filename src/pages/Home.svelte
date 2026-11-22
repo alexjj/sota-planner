@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import L from 'leaflet';
-  import { createMap, summitMarker, hillMarker, parkingMarker, trackLayer, routeTrack, esc, summitLinks, hillLinks, COLORS, POINTS_COLORS, sizeSummitsOnZoom, webZoom, mapZoom } from '../lib/map.js';
+  import { createMap, summitMarker, hillMarker, parkingMarker, trackLayer, routeTrack, esc, summitLinks, hillLinks, whPopupLinks, COLORS, POINTS_COLORS, sizeSummitsOnZoom, webZoom, mapZoom } from '../lib/map.js';
   import { getSummits, getHills, getIndex, getTrip, saveTrip, getActivations } from '../lib/store.js';
   import { showFlash } from '../lib/flash.svelte.js';
   import { fmtDuration } from '../lib/time.js';
@@ -79,7 +79,7 @@
       ${tripList}
       <div class="row small">
         <a href="${links.sotlas}" target="_blank" rel="noopener">SOTLAS</a>
-        <a href="${links.walkhighlands}" target="_blank" rel="noopener">Search WH</a>
+        ${whPopupLinks(links)}
         ${edit ? `<a href="#/new?summit=${encodeURIComponent(s.ref)}">+ New trip</a>` : ''}
       </div>`;
   }
@@ -96,7 +96,7 @@
       ${inTrips.length ? `<ul>${inTrips.map(tripLink).join('')}</ul>` : ''}
       <div class="row small">
         <a href="${hillLinks(h).hillBagging}" target="_blank" rel="noopener">Hill Bagging</a>
-        <a href="${hillLinks(h).walkhighlands}" target="_blank" rel="noopener">Search WH</a>
+        ${whPopupLinks(hillLinks(h))}
       </div>`;
   }
 

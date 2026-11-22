@@ -53,6 +53,11 @@ delete. Change save behaviour there, not in one backend only.
   Bump `ZONE_VERSION` when the method changes so saved zones are redone.
   Surveyed LiDAR zones (`data/zones-lidar.json`, from `sources/az/gm.geojson.gz` via `npm run import-zones`; may have
   `holes`, plus source/licence fields) win over both and are never recomputed. Never hand-edit that file.
+- **Walkhighlands links** (`data/walkhighlands.json`, `npm run import-walkhighlands`): `{ walks: { [id]: [name, path, km, grade] },
+  summits: { [ref]: [id...] }, hills: { [hillId]: [id...] } }`, closest walk first. Built from a browser-saved copy of
+  walkhighlands.co.uk/full.geojson in `sources/walkhighlands/` (gitignored: their tracks are copyright; never commit or
+  publish tracks). App.svelte loads it before pages render and `map.js` `setWalkhighlands` feeds `summitLinks`/`hillLinks`
+  (`walkhighlands`, `whLabel`, `whTitle`, `walks`) and `whPopupLinks`; no match falls back to a search link.
 - A route drawn in the editor has `drawn: { points: [{lat, lon}], modes: ['path'|'line'] }` (one mode per stretch)
   so it can be edited again; its GPX is still the source of truth. `src/lib/draw.js` (browser only) follows
   paths with BRouter (brouter.de, hiking-mountain profile) and draws straight lines with terrain-tile heights.
