@@ -46,6 +46,13 @@ delete. Change save behaviour there, not in one backend only.
   ('Munro' etc.) is every DoBIH hill of that type instead: done if its SOTA summit is activated or it's in
   `ticks` ({ hillId: 'YYYY-MM-DD' }, ticked off by hand). No file means
   `defaultGoals`. Saved via `PUT /api/goals` or `github.saveFile`; `cleanGoals` validates it for both.
+- **Activation zones** (`data/zones.json`, `src/lib/zones.js`): `{ [ref]: { v, top, threshold, ring: [[lat, lon]...], truncated? } }`.
+  `elevation.js` `activationZone` builds a Mapterhorn height grid (z12, 512 px tiles) and `zoneFromGrid` flood-fills
+  from the top (4-connected, ≥ top − 25 m) and traces it with marching squares. TripView works out missing ones and,
+  in edit modes, saves them via `PUT /api/zones` (merges) or `github.saveFile`; `cleanZones`/`mergeZones` validate both.
+  Bump `ZONE_VERSION` when the method changes so saved zones are redone.
+  Surveyed LiDAR zones (`data/zones-lidar.json`, from `sources/az/gm.geojson.gz` via `npm run import-zones`; may have
+  `holes`, plus source/licence fields) win over both and are never recomputed. Never hand-edit that file.
 - A route drawn in the editor has `drawn: { points: [{lat, lon}], modes: ['path'|'line'] }` (one mode per stretch)
   so it can be edited again; its GPX is still the source of truth. `src/lib/draw.js` (browser only) follows
   paths with BRouter (brouter.de, hiking-mountain profile) and draws straight lines with terrain-tile heights.

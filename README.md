@@ -141,6 +141,37 @@ faded with a dark outline, and their popups say how often and when you last acti
 that layer off in the map's layer menu to see only summits you still need. A new activation shows up
 the morning after you log it.
 
+## Activation zones
+
+A trip page shows each summit's activation zone, the ground within 25 m (vertically) of the top
+and joined to it, as an outline on the map. Next to the summit it shows "AZ above X m", which is
+the SOTA height minus 25 m, the figure to check a GPS or altimeter against.
+
+**Surveyed zones** come first: 146 GM summits have zones worked out by AD8IS from Scottish Remote
+Sensing Portal LiDAR terrain (0.25–1 m), as published in
+[manuelkasper/sotlas-tiles](https://github.com/manuelkasper/sotlas-tiles/tree/master/az). They show
+as a solid outline and "(surveyed)". The original file is kept in `sources/az/gm.geojson.gz`;
+`npm run import-zones` turns it into `data/zones-lidar.json` (outlines simplified to about 1 m),
+and `npm run import-zones -- --download` fetches the latest copy first. LiDAR attribution: Crown
+copyright Scottish Government, SEPA and Scottish Water; Copyright Scottish Government and SEPA,
+Fugro; © SEPA; © HES (each zone records which). Most is under the Open Government Licence v3, but
+five zones (GM/SI-118, SI-122, SI-204, SI-212, SI-214) come from data licensed for **non-commercial
+use only** (Non-Commercial Government Licence).
+
+**Other summits** get an estimated zone, drawn dashed. The outline is worked out in the browser from [Mapterhorn](https://mapterhorn.com) terrain tiles
+(Copernicus GLO-30 and others, about 10 m pixels; free, no key). The tops are taken as the highest
+ground within 100 m of the summit. The zone is then everything joined to that top, edge to edge, that
+is no more than 25 m lower, outlined at that height. As in the OS-contour method this follows, a
+neighbouring top only counts if the ridge between stays above the line.
+
+The terrain data rounds off summits a little: tops come out a median of 5 m low (15 m at worst
+in tests). So the 25 m is measured from the data's own top, not the official height. Treat the outline
+as a guide, not a survey.
+
+Each zone is worked out once. When you can edit (local or GitHub mode), it's saved in
+`data/zones.json` and read back on later visits; on the public site it's worked out each time
+for summits that aren't saved yet.
+
 ## Editing tips
 
 - **More than one route:** use **+ Add another route** when you'll drive to more hills the same day. Each route gets a number and colour. These match its line on the map, its parking marker (P1, P2…), and its stages in the timetable.

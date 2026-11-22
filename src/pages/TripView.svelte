@@ -2,7 +2,9 @@
   import { onMount } from 'svelte';
   import L from 'leaflet';
   import { createMap, summitMarker, hillMarker, parkingMarker, trackLayer, routeTrack, esc, summitLinks, sizeSummitsOnZoom, mapZoom } from '../lib/map.js';
-  import { getSummits, getHills, getTrip, getGpxText, gpxUrl, photoUrl, googleMapsUrl, getPace } from '../lib/store.js';
+  import { getSummits, getHills, getTrip, getGpxText, gpxUrl, photoUrl, googleMapsUrl, getPace, getZones, saveZones, getLidarZones } from '../lib/store.js';
+  import { activationZone, ZONE_SOURCE } from '../lib/elevation.js';
+  import { zoneCurrent, ZONE_DROP } from '../lib/zones.js';
   import { paceFor, ridePaceFor, statsMinutes, round5, TERRAINS, COMPANY } from '../lib/pace.js';
   import { parseGpx } from '../lib/gpx.js';
   import { routeWalkMinutes, routeTimes, oneWayKm } from '../lib/plan.js';
@@ -57,6 +59,56 @@
     }
   }
 
+  // Activation zones: saved ones from data/zones.json, the rest worked out here
+  // from terrain heights and (when you can edit) saved so it's only done once.
+  let zones = $state.raw({}); // ref -> zone
+  let zoneWorking = $state.raw(new Set()); // refs being worked out
+  let zoneFailed = $state.raw(new Set());
+  let zoneLayer;
+
+  /** Where a zone came from, for tooltips. */
+  const zoneSource = (zone) => (zone.source
+    ? `surveyed: ${zone.source} terrain${zone.by ? ` by ${zone.by}` : ''}${zone.credit ? `, © ${zone.credit}` : ''}, ${zone.licence}`
+    : `estimated from ${ZONE_SOURCE}, about 10 m detail`);
+
+  function drawZone(ref, zone, color) {
+    const alt = summit(ref).alt;
+    L.polygon([zone.ring, ...(zone.holes ?? [])], { pane: 'zones', color, weight: 2, dashArray: zone.source ? null : '5 4', fillOpacity: 0.12 })
+      .bindTooltip(`${ref} activation zone${alt != null ? `: above ${alt - ZONE_DROP} m` : ''}${zone.truncated ? ' (larger than shown)' : ''}<br><span class="muted">${zone.source ? `Surveyed (${zone.source} LiDAR)` : 'Estimated from terrain tiles'}</span>`, { sticky: true })
+      .addTo(zoneLayer);
+  }
+
+  async function loadZones(colors) {
+    // Surveyed (LiDAR) zones first, then ones worked out earlier, then work out the rest.
+    const [lidar, saved] = await Promise.all([getLidarZones(), getZones().catch(() => ({}))]);
+    const known = { ...saved, ...lidar };
+    zones = known;
+    if ([...colors.keys()].some((ref) => lidar[ref])) {
+      map.attributionControl.addAttribution('Surveyed zones: AD8IS, Scottish Remote Sensing Portal LiDAR (OGL v3)');
+    }
+    const added = {};
+    for (const [ref, color] of colors) {
+      if (lidar[ref]) { drawZone(ref, lidar[ref], color); continue; }
+      if (zoneCurrent(saved[ref])) { drawZone(ref, saved[ref], color); continue; }
+      const s = summit(ref);
+      if (s.lat == null) continue;
+      zoneWorking = new Set([...zoneWorking, ref]);
+      try {
+        const z = await activationZone(s);
+        added[ref] = z;
+        zones = { ...zones, [ref]: z };
+        drawZone(ref, z, color);
+      } catch (e) {
+        console.warn(`Activation zone for ${ref}:`, e);
+        zoneFailed = new Set([...zoneFailed, ref]);
+      }
+      zoneWorking = new Set([...zoneWorking].filter((r) => r !== ref));
+    }
+    if (edit && Object.keys(added).length) {
+      saveZones(added).catch((e) => console.warn("Couldn't save activation zones:", e));
+    }
+  }
+
   let pace = $state.raw({ walks: [] });
   const walkEstimate = (r) => {
     const p = paceFor(pace, r.terrain, r.company);
@@ -77,6 +129,9 @@
   onMount(() => {
     map = createMap(mapEl).map;
     sizeSummitsOnZoom(map);
+    map.createPane('zones').style.zIndex = 350; // under tracks and markers
+    zoneLayer = L.layerGroup().addTo(map);
+    map.attributionControl.addAttribution('Activation zones from <a href="https://mapterhorn.com" target="_blank" rel="noopener">Mapterhorn</a> terrain');
     (async () => {
       try {
         [trip, summitsData, hillsData, pace] = await Promise.all([
@@ -93,6 +148,7 @@
       }
       const bounds = L.latLngBounds([]);
       const routes = routeInfo(trip, summitsData.byRef);
+      const zoneColors = new Map(); // summit ref -> its route's colour
       for (const r of trip.routes) {
         const ri = routes.get(r.id);
         if (lines[r.id]?.length) {
@@ -130,6 +186,7 @@
                 <a href="${summitLinks(s.ref, s.name).walkhighlands}" target="_blank" rel="noopener">Search WH</a>
               </div>`);
           bounds.extend([s.lat, s.lon]);
+          if (!zoneColors.has(ref)) zoneColors.set(ref, ri.color);
         }
         for (const hid of r.hills) {
           const h = hill(hid);
@@ -139,6 +196,7 @@
         }
       }
       if (bounds.isValid()) map.fitBounds(bounds, { padding: [40, 40], maxZoom: mapZoom(map, 14) });
+      loadZones(zoneColors);
     })();
     return () => map.remove();
   });
@@ -186,6 +244,13 @@
                   <span class="chip summit"><span class="ref">{s.ref}</span></span>
                   {s.name}
                   <span class="muted small">{s.alt ?? '?'} m · {s.points ?? '?'} pts</span>
+                  {#if zones[ref]}
+                    <span class="muted small" title="Activation zone: within {ZONE_DROP} m of the top ({s.alt} m) and joined to it. The outline on the map is {zoneSource(zones[ref])}.{zones[ref].truncated ? ' It reaches further than worked out.' : ''}">· AZ above {s.alt - ZONE_DROP} m{zones[ref].source ? ' (surveyed)' : ''}</span>
+                  {:else if zoneWorking.has(ref)}
+                    <span class="muted small">· working out AZ…</span>
+                  {:else if zoneFailed.has(ref)}
+                    <span class="muted small" title="Couldn't load terrain heights">· AZ unavailable</span>
+                  {/if}
                   <a class="small" href={summitLinks(s.ref).sotlas} target="_blank" rel="noopener">SOTLAS</a>
                   <a class="small" href={summitLinks(s.ref, s.name).walkhighlands} target="_blank" rel="noopener">Search WH</a>
                 </li>

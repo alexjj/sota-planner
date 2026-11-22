@@ -2,6 +2,7 @@ import { normalizeTrip } from './trip.js';
 import * as github from './github.js';
 import { cleanPace } from './pace.js';
 import { cleanGoals } from './goals.js';
+import { mergeZones } from './zones.js';
 
 // Loading and saving data. There are three modes:
 //   local  - `npm run edit` / `npm run serve`: the edit API reads and writes data/ on disk
@@ -146,6 +147,39 @@ export async function saveGoals(goals) {
     return clean;
   }
   return api('PUT', 'api/goals', goals);
+}
+
+/**
+ * Surveyed activation zones from LiDAR (data/zones-lidar.json, made by
+ * `npm run import-zones`): { [ref]: zone }. These win over worked-out ones.
+ */
+export const getLidarZones = once(async () => {
+  const d = await loadJson('data/zones-lidar.json').catch(() => null);
+  return d?.zones ?? {};
+});
+
+/** Saved activation zones (data/zones.json): { [ref]: zone }. Empty if there isn't a file yet. */
+export async function getZones() {
+  await getStatus();
+  if (mode === 'github') {
+    const text = await github.readFile(gh, 'data/zones.json');
+    return text ? JSON.parse(text) : {};
+  }
+  return loadJson('data/zones.json').catch(() => ({}));
+}
+
+/** Add newly worked-out zones to data/zones.json, keeping the ones already there. */
+export async function saveZones(added) {
+  await getStatus();
+  if (mode === 'github') {
+    const text = await github.readFile(gh, 'data/zones.json');
+    const all = mergeZones(text ? JSON.parse(text) : {}, added);
+    const refs = Object.keys(added).join(', ');
+    await github.saveFile(gh, 'data/zones.json', JSON.stringify(all) + '\n', `Add activation zone: ${refs}`);
+    return all;
+  }
+  if (mode === 'local') return api('PUT', 'api/zones', added);
+  throw new Error('Read-only');
 }
 
 async function api(method, url, body) {

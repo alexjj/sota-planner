@@ -9,6 +9,7 @@
 //   POST   /api/publish         -> git pull, commit data/, push
 //   PUT    /api/pace            -> save walking pace records to data/pace.json
 //   PUT    /api/goals           -> save goals to data/goals.json
+//   PUT    /api/zones           -> add activation zones ({ [ref]: zone }) to data/zones.json
 //
 // Save/create body: { trip, gpx, newPhotos }
 //   gpx:       { [routeId]: string | null }. A string replaces that route's
@@ -24,6 +25,7 @@ import { parseGpx, simplify } from '../src/lib/gpx.js';
 import { normalizeTrip } from '../src/lib/trip.js';
 import { cleanPace } from '../src/lib/pace.js';
 import { cleanGoals } from '../src/lib/goals.js';
+import { mergeZones } from '../src/lib/zones.js';
 import { TRIP_ID_RE, planTripSave, indexEntry, sortIndex, indexText, uniqueTripId } from '../src/lib/save.js';
 
 const run = promisify(execFile);
@@ -183,6 +185,13 @@ export async function apiMiddleware(req, res, next) {
       const goals = cleanGoals(await readBody(req));
       await writeFile(path.join(dataDir, 'goals.json'), JSON.stringify(goals, null, 2) + '\n');
       return send(res, 200, goals);
+    }
+    if (parts[0] === 'zones' && method === 'PUT') {
+      const file = path.join(dataDir, 'zones.json');
+      const saved = await readFile(file, 'utf8').then(JSON.parse, () => ({}));
+      const zones = mergeZones(saved, await readBody(req));
+      await writeFile(file, JSON.stringify(zones) + '\n');
+      return send(res, 200, zones);
     }
     if (parts[0] === 'trips' && parts.length === 1 && method === 'POST') {
       const body = await readBody(req);
