@@ -23,9 +23,53 @@
         "GM/CS-097"
       ],
       "hills": []
+    },
+    {
+      "id": "rgqgv67",
+      "name": "Carn Nan Tri tighearnan & Knock of Braemoray",
+      "gpx": "rgqgv67.gpx",
+      "stats": {
+        "distanceKm": 1.27,
+        "ascentM": 155,
+        "descentM": 0,
+        "maxEleM": 455,
+        "start": {
+          "lat": 57.447299,
+          "lon": -3.662188
+        }
+      },
+      "parking": {
+        "label": "Start of GPX route",
+        "lat": 57.447299,
+        "lon": -3.662188
+      },
+      "summits": [
+        "GM/CS-115"
+      ],
+      "hills": [],
+      "drawn": {
+        "points": [
+          {
+            "lat": 57.447309,
+            "lon": -3.662143
+          },
+          {
+            "lat": 57.447278,
+            "lon": -3.662015
+          },
+          {
+            "lat": 57.455095,
+            "lon": -3.648512
+          }
+        ],
+        "modes": [
+          "path",
+          "path"
+        ]
+      }
     }
   ],
-  "name": "Carn Nan Tri tighearnan",
+  "name": "Carn Nan Tri tighearnan & Knock of Braemoray",
   "tags": [],
   "notes": "",
   "links": [],
@@ -33,6 +77,10 @@
     {
       "file": "mwsdgd8w-0jz4-pasted.jpg",
       "caption": "Parking on verge"
+    },
+    {
+      "file": "mwsdq64o-jen1-pasted.jpg",
+      "caption": "Knock parking"
     }
   ],
   "timetable": {
@@ -67,14 +115,42 @@
         "route": "rhoz12v"
       },
       {
+        "id": "3fzm5s",
+        "type": "drive",
+        "label": "",
+        "minutes": 20,
+        "route": "rgqgv67"
+      },
+      {
+        "id": "yi6vlz",
+        "type": "walk",
+        "label": "Walk in",
+        "minutes": 25,
+        "route": "rgqgv67"
+      },
+      {
+        "id": "hkao0b",
+        "type": "activate",
+        "label": "",
+        "minutes": 40,
+        "summit": "GM/CS-115"
+      },
+      {
+        "id": "8ibve7",
+        "type": "walk",
+        "label": "Walk back",
+        "minutes": 20,
+        "route": "rgqgv67"
+      },
+      {
         "id": "t6kmq8",
         "type": "drive",
         "label": "Drive home",
-        "minutes": 145
+        "minutes": 135
       }
     ]
   },
   "id": "carn-nan-tri-tighearnan",
-  "updated": "2026-11-22T21:52:36.599Z",
+  "updated": "2026-11-22T21:59:31.843Z",
   "created": "2026-11-22T21:52:36.599Z"
 }
