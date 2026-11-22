@@ -13,6 +13,7 @@
     edit: lazy(() => import('./pages/TripEdit.svelte')),
     settings: lazy(() => import('./pages/Settings.svelte')),
     goals: lazy(() => import('./pages/Goals.svelte')),
+    timetables: lazy(() => import('./pages/Timetables.svelte')),
   };
 
   let hash = $state(location.hash);
@@ -45,6 +46,7 @@
     if (parts[0] === 'new') return { name: 'new', summit: query.get('summit') };
     if (parts[0] === 'settings') return { name: 'settings' };
     if (parts[0] === 'goals') return { name: 'goals' };
+    if (parts[0] === 'timetables') return { name: 'timetables' };
     return { name: 'home' };
   });
 
@@ -76,6 +78,7 @@
         </button>
       {/if}
     {/if}
+    <a class="button" href="#/timetables" title="Every planned trip's day side by side, from the same start time">Timetables</a>
     <a class="button" href="#/goals" title="Summit goals and your progress">Goals</a>
     <a class="button" href="#/settings" title="Home location and walking pace">Settings</a>
     {#if status && status.mode !== 'local'}
@@ -115,6 +118,8 @@
         {#await pages.settings() then { default: Settings }}<Settings />{:catch e}{@render loadFailed(e)}{/await}
       {:else if page.name === 'goals'}
         {#await pages.goals() then { default: Goals }}<Goals />{:catch e}{@render loadFailed(e)}{/await}
+      {:else if page.name === 'timetables'}
+        {#await pages.timetables() then { default: Timetables }}<Timetables />{:catch e}{@render loadFailed(e)}{/await}
       {:else}
         <Home edit={status.edit} />
       {/if}
@@ -130,7 +135,7 @@
 <style>
   .shell { display: flex; flex-direction: column; height: 100%; }
   header {
-    display: flex; align-items: center; gap: 0.6rem;
+    display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
     padding: 0.5rem 1rem;
     background: var(--panel);
     border-bottom: 1px solid var(--line);

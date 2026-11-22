@@ -129,6 +129,16 @@ Until you save your own, you get starting goals: all of GM, every Munro and each
 **Edit goals** to rename, reorder, delete or add goals, then **Save goals**: they go in
 `data/goals.json`, in local and GitHub mode like walking pace.
 
+## Timetables
+
+**Timetables** in the header puts every trip not marked done side by side, Gantt-style. Each row is
+one trip's timetable as coloured bars for its drives, walks, cycling, activations, breaks and camps,
+against the hours of the day along the top. All the trips leave home at the same time, set with
+**Leave home at**, and the rows go from the shortest day to the longest. Each row shows the total
+time and when you'd be home. Hover over a bar for its stage and clock times. Set **Back by** to draw
+a line at that time and fade the trips that finish later, to see what fits in the time you have.
+Both times are remembered in that browser only. Trips with no timetable yet are listed underneath.
+
 ## Your activated summits
 
 `SOTA_USER_ID` in `.env` is your SOTA database user id: the number in your activator log address,
