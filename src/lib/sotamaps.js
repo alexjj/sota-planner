@@ -2,7 +2,7 @@
 // cross-origin requests, so the browser asks it directly.
 import { gpxStats } from './gpx.js';
 
-const API = 'https://api-db.sota.org.uk/smp/gpx/summit';
+const API = 'https://api-db2.sota.org.uk/smp/gpx/summit';
 
 /** Dashed-line colours for SOTAmaps tracks, picked to stand apart from the route colours. */
 export const SMP_COLORS = ['#d6336c', '#7048e8', '#1098ad', '#f76707', '#37b24d', '#495057'];
