@@ -21,10 +21,12 @@
   },
   "goals": [
     {
-      "id": "all",
-      "name": "All GM summits",
+      "id": "region-CS",
+      "name": "GM/CS Central Scotland",
       "rule": {
-        "regions": [],
+        "regions": [
+          "CS"
+        ],
         "hills": [],
         "minPoints": 0
       },
@@ -38,25 +40,13 @@
       "refs": []
     },
     {
-      "id": "region-CS",
-      "name": "GM/CS Central Scotland",
+      "id": "gmwrvpuzu0",
+      "name": "Corbetts",
       "rule": {
-        "regions": [
-          "CS"
+        "regions": [],
+        "hills": [
+          "Corbett"
         ],
-        "hills": [],
-        "minPoints": 0
-      },
-      "refs": []
-    },
-    {
-      "id": "region-ES",
-      "name": "GM/ES Eastern Scotland",
-      "rule": {
-        "regions": [
-          "ES"
-        ],
-        "hills": [],
         "minPoints": 0
       },
       "refs": []
@@ -104,6 +94,16 @@
         "regions": [
           "WS"
         ],
+        "hills": [],
+        "minPoints": 0
+      },
+      "refs": []
+    },
+    {
+      "id": "all",
+      "name": "All GM summits",
+      "rule": {
+        "regions": [],
         "hills": [],
         "minPoints": 0
       },
