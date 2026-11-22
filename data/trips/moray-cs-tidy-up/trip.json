@@ -2,7 +2,7 @@
   "routes": [
     {
       "id": "ryzjjtk",
-      "name": "Burgiehill CS 123",
+      "name": "",
       "gpx": "ryzjjtk.gpx",
       "stats": {
         "distanceKm": 1.9,
@@ -27,7 +27,7 @@
     },
     {
       "id": "rudbcn9",
-      "name": "Wangie(2)",
+      "name": "",
       "gpx": "rudbcn9.gpx",
       "stats": {
         "distanceKm": 0.99,
@@ -51,7 +51,7 @@
     },
     {
       "id": "rfbwho3",
-      "name": "Moray CS tidy-up",
+      "name": "",
       "gpx": "rfbwho3.gpx",
       "stats": {
         "distanceKm": 2.84,
@@ -109,6 +109,10 @@
     {
       "file": "mwse5ky6-pj2v-pasted.jpg",
       "caption": "Wangie parking"
+    },
+    {
+      "file": "mwsem1t3-7go3-pasted.jpg",
+      "caption": "alt. wangie parking"
     }
   ],
   "timetable": {
@@ -207,6 +211,6 @@
     ]
   },
   "id": "moray-cs-tidy-up",
-  "updated": "2026-11-22T22:11:18.584Z",
+  "updated": "2026-11-22T22:24:47.811Z",
   "created": "2026-11-22T22:05:10.310Z"
 }
