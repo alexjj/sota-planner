@@ -40,6 +40,24 @@
     return null;
   }
 
+  // Save the GPX as a file. A plain download link only works for files on this
+  // site: in GitHub mode the GPX is on raw.githubusercontent.com, and browsers
+  // then ignore `download` and show the XML. So fetch it and save it from here.
+  async function downloadGpx(e, r, i) {
+    e.preventDefault();
+    try {
+      const text = await getGpxText(id, r.gpx);
+      const url = URL.createObjectURL(new Blob([text], { type: 'application/gpx+xml' }));
+      const a = Object.assign(document.createElement('a'), { href: url, download: `${id}-${i + 1}.gpx` });
+      document.body.append(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    } catch {
+      location.href = gpxUrl(id, r.gpx); // fall back to opening it
+    }
+  }
+
   async function copyParking(r) {
     await navigator.clipboard.writeText(`${r.parking.lat}, ${r.parking.lon}`);
     copied = r.id;
@@ -282,7 +300,7 @@
                 {/if}
               </div>
               {#if lines[r.id]}<ElevationProfile lines={lines[r.id]} color={ri.color} />{/if}
-              <a class="small" href={gpxUrl(id, r.gpx)} download="{id}-{i + 1}.gpx">Download GPX</a>
+              <a class="small" href={gpxUrl(id, r.gpx)} download="{id}-{i + 1}.gpx" onclick={(e) => downloadGpx(e, r, i)}>Download GPX</a>
             {/if}
 
             {#if r.parking}
