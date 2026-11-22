@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="SOTA Trip Planner" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk>
+    <name>Moray CS tidy-up</name>
+    <src>Drawn in SOTA Trip Planner (paths: BRouter, OpenStreetMap contributors)</src>
+    <trkseg>
+      <trkpt lat="57.590924" lon="-3.213092"><ele>171.3</ele></trkpt>
+      <trkpt lat="57.590895" lon="-3.213124"><ele>171.8</ele></trkpt>
+      <trkpt lat="57.591539" lon="-3.220934"><ele>191.8</ele></trkpt>
+      <trkpt lat="57.590711" lon="-3.2219"><ele>201</ele></trkpt>
+      <trkpt lat="57.59086" lon="-3.222737"><ele>203.5</ele></trkpt>
+      <trkpt lat="57.590895" lon="-3.223659"><ele>206.8</ele></trkpt>
+      <trkpt lat="57.590711" lon="-3.224217"><ele>209</ele></trkpt>
+      <trkpt lat="57.590676" lon="-3.225312"><ele>214.3</ele></trkpt>
+      <trkpt lat="57.58963" lon="-3.225784"><ele>224.3</ele></trkpt>
+      <trkpt lat="57.589411" lon="-3.22647"><ele>229.5</ele></trkpt>
+      <trkpt lat="57.589595" lon="-3.228959"><ele>238.3</ele></trkpt>
+      <trkpt lat="57.58948" lon="-3.23147"><ele>245.5</ele></trkpt>
+      <trkpt lat="57.588629" lon="-3.232242"><ele>253.8</ele></trkpt>
+      <trkpt lat="57.585696" lon="-3.23501"><ele>279.5</ele></trkpt>
+      <trkpt lat="57.583936" lon="-3.236727"><ele>293</ele></trkpt>
+      <trkpt lat="57.583798" lon="-3.237585"><ele>296.5</ele></trkpt>
+      <trkpt lat="57.583522" lon="-3.238079"><ele>300.3</ele></trkpt>
+      <trkpt lat="57.583085" lon="-3.238251"><ele>303.3</ele></trkpt>
+      <trkpt lat="57.582855" lon="-3.238251"><ele>305</ele></trkpt>
+      <trkpt lat="57.582625" lon="-3.238444"><ele>307.3</ele></trkpt>
+      <trkpt lat="57.581923" lon="-3.23868"><ele>312.5</ele></trkpt>
+      <trkpt lat="57.580347" lon="-3.240182"><ele>322.8</ele></trkpt>
+      <trkpt lat="57.580244" lon="-3.24134"><ele>322.5</ele></trkpt>
+      <trkpt lat="57.580244" lon="-3.241941"><ele>319.8</ele></trkpt>
+      <trkpt lat="57.580083" lon="-3.242456"><ele>319</ele></trkpt>
+      <trkpt lat="57.579818" lon="-3.242564"><ele>323</ele></trkpt>
+      <trkpt lat="57.579347" lon="-3.24237"><ele>328.8</ele></trkpt>
+      <trkpt lat="57.578541" lon="-3.242349"><ele>336.3</ele></trkpt>
+      <trkpt lat="57.577852" lon="-3.241482"></trkpt>
+    </trkseg>
+  </trk>
+</gpx>

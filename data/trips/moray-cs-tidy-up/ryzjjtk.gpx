@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<gpx xmlns="http://www.topografix.com/GPX/1/1" creator="www.plotaroute.com" version="1.1"  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
+<metadata>
+<desc>Route created on plotaroute.com</desc>
+</metadata>
+<trk>
+<name>Burgiehill CS-123</name>
+<trkseg>
+<trkpt lat="57.593348" lon="-3.503897">
+<ele>218</ele>
+<time>2026-11-22T00:00:00Z</time></trkpt>
+<trkpt lat="57.593348" lon="-3.503897">
+<ele>218</ele>
+<time>2026-11-22T00:00:00Z</time></trkpt>
+<trkpt lat="57.590861" lon="-3.511463">
+<ele>230</ele>
+<time>2026-11-22T00:08:21Z</time></trkpt>
+<trkpt lat="57.587341" lon="-3.506098">
+<ele>227</ele>
+<time>2026-11-22T00:16:07Z</time></trkpt>
+<trkpt lat="57.585409" lon="-3.506356">
+<ele>237</ele>
+<time>2026-11-22T00:19:37Z</time></trkpt>
+<trkpt lat="57.582763" lon="-3.509789">
+<ele>244</ele>
+<time>2026-11-22T00:25:17Z</time></trkpt>
+<trkpt lat="57.582248" lon="-3.510642">
+<ele>239</ele>
+<time>2026-11-22T00:26:25Z</time></trkpt>
+<trkpt lat="57.582212" lon="-3.510794">
+<ele>239</ele>
+<time>2026-11-22T00:26:34Z</time></trkpt>
+<trkpt lat="57.582267" lon="-3.510925">
+<ele>240</ele>
+<time>2026-11-22T00:26:43Z</time></trkpt>
+<trkpt lat="57.583505" lon="-3.512504">
+<ele>251</ele>
+<time>2026-11-22T00:29:29Z</time></trkpt>
+<trkpt lat="57.58375" lon="-3.512733">
+<ele>251</ele>
+<time>2026-11-22T00:29:57Z</time></trkpt>
+</trkseg>
+</trk>
+</gpx>

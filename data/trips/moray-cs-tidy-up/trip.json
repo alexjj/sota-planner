@@ -1,0 +1,195 @@
+{
+  "routes": [
+    {
+      "id": "ryzjjtk",
+      "name": "Burgiehill CS 123",
+      "gpx": "ryzjjtk.gpx",
+      "stats": {
+        "distanceKm": 1.9,
+        "ascentM": 38,
+        "descentM": 5,
+        "maxEleM": 251,
+        "start": {
+          "lat": 57.593348,
+          "lon": -3.503897
+        }
+      },
+      "parking": {
+        "label": "Start of GPX route",
+        "lat": 57.593348,
+        "lon": -3.503897
+      },
+      "summits": [
+        "GM/CS-123"
+      ],
+      "hills": [],
+      "terrain": "easy"
+    },
+    {
+      "id": "rudbcn9",
+      "name": "Wangie(2)",
+      "gpx": "rudbcn9.gpx",
+      "stats": {
+        "distanceKm": 0.99,
+        "ascentM": 150,
+        "descentM": 0,
+        "maxEleM": 318,
+        "start": {
+          "lat": 57.56057,
+          "lon": -3.43952
+        }
+      },
+      "parking": {
+        "label": "Start of GPX route",
+        "lat": 57.56057,
+        "lon": -3.43952
+      },
+      "summits": [
+        "GM/CS-121"
+      ],
+      "hills": []
+    },
+    {
+      "id": "rfbwho3",
+      "name": "Moray CS tidy-up",
+      "gpx": "rfbwho3.gpx",
+      "stats": {
+        "distanceKm": 2.84,
+        "ascentM": 165,
+        "descentM": 0,
+        "maxEleM": 336,
+        "start": {
+          "lat": 57.590924,
+          "lon": -3.213092
+        }
+      },
+      "parking": {
+        "label": "Start of GPX route",
+        "lat": 57.590924,
+        "lon": -3.213092
+      },
+      "summits": [
+        "GM/CS-120"
+      ],
+      "hills": [],
+      "drawn": {
+        "points": [
+          {
+            "lat": 57.590919,
+            "lon": -3.213072
+          },
+          {
+            "lat": 57.577852,
+            "lon": -3.241482
+          }
+        ],
+        "modes": [
+          "path"
+        ]
+      }
+    }
+  ],
+  "name": "Moray CS tidy-up",
+  "tags": [],
+  "notes": "",
+  "links": [],
+  "photos": [],
+  "timetable": {
+    "start": "07:00",
+    "stages": [
+      {
+        "id": "zkcll7",
+        "type": "drive",
+        "label": "",
+        "minutes": 125,
+        "route": "ryzjjtk"
+      },
+      {
+        "id": "aeht7g",
+        "type": "walk",
+        "label": "Walk in",
+        "minutes": 25,
+        "route": "ryzjjtk"
+      },
+      {
+        "id": "ohri7a",
+        "type": "activate",
+        "label": "",
+        "minutes": 40,
+        "summit": "GM/CS-123"
+      },
+      {
+        "id": "e7kz9k",
+        "type": "walk",
+        "label": "Walk back",
+        "minutes": 25,
+        "route": "ryzjjtk"
+      },
+      {
+        "id": "3cgi0g",
+        "type": "drive",
+        "label": "",
+        "minutes": 20,
+        "route": "rudbcn9"
+      },
+      {
+        "id": "cp77z3",
+        "type": "walk",
+        "label": "Walk in",
+        "minutes": 20,
+        "route": "rudbcn9"
+      },
+      {
+        "id": "o3jqfj",
+        "type": "activate",
+        "label": "",
+        "minutes": 40,
+        "summit": "GM/CS-121"
+      },
+      {
+        "id": "m4pz4j",
+        "type": "walk",
+        "label": "Walk back",
+        "minutes": 15,
+        "route": "rudbcn9"
+      },
+      {
+        "id": "7aq4ea",
+        "type": "drive",
+        "label": "",
+        "minutes": 35,
+        "route": "rfbwho3"
+      },
+      {
+        "id": "jcps35",
+        "type": "walk",
+        "label": "Walk in",
+        "minutes": 45,
+        "route": "rfbwho3"
+      },
+      {
+        "id": "u0o9qn",
+        "type": "activate",
+        "label": "",
+        "minutes": 40,
+        "summit": "GM/CS-120"
+      },
+      {
+        "id": "fxsdmo",
+        "type": "walk",
+        "label": "Walk back",
+        "minutes": 35,
+        "route": "rfbwho3"
+      },
+      {
+        "id": "1jl3j3",
+        "type": "drive",
+        "label": "Drive home",
+        "minutes": 100
+      }
+    ]
+  },
+  "id": "moray-cs-tidy-up",
+  "updated": "2026-11-22T22:05:10.310Z",
+  "created": "2026-11-22T22:05:10.310Z"
+}
