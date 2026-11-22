@@ -93,7 +93,24 @@
   "tags": [],
   "notes": "",
   "links": [],
-  "photos": [],
+  "photos": [
+    {
+      "file": "mwse2og7-5x6x-pasted.jpg",
+      "caption": "Brown muir possible parking area"
+    },
+    {
+      "file": "mwse3z04-742c-pasted.jpg",
+      "caption": "Burgie hill parking"
+    },
+    {
+      "file": "mwse4kde-g97c-pasted.jpg",
+      "caption": "Backup Burgie"
+    },
+    {
+      "file": "mwse5ky6-pj2v-pasted.jpg",
+      "caption": "Wangie parking"
+    }
+  ],
   "timetable": {
     "start": "07:00",
     "stages": [
@@ -190,6 +207,6 @@
     ]
   },
   "id": "moray-cs-tidy-up",
-  "updated": "2026-11-22T22:05:10.310Z",
+  "updated": "2026-11-22T22:11:18.584Z",
   "created": "2026-11-22T22:05:10.310Z"
 }
