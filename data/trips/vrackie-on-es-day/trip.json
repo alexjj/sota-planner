@@ -23,6 +23,61 @@
         "GM/CS-065"
       ],
       "hills": []
+    },
+    {
+      "id": "rvmyish",
+      "name": "",
+      "gpx": "rvmyish.gpx",
+      "stats": {
+        "distanceKm": 3.1,
+        "ascentM": 242,
+        "descentM": 5,
+        "maxEleM": 447,
+        "start": {
+          "lat": 56.534222,
+          "lon": -3.034013
+        }
+      },
+      "parking": {
+        "label": "Start of GPX route",
+        "lat": 56.534222,
+        "lon": -3.034013
+      },
+      "summits": [
+        "GM/SS-192"
+      ],
+      "hills": [],
+      "terrain": "easy",
+      "drawn": {
+        "points": [
+          {
+            "lat": 56.534231,
+            "lon": -3.034008
+          },
+          {
+            "lat": 56.536042,
+            "lon": -3.032613
+          },
+          {
+            "lat": 56.539934,
+            "lon": -3.025382
+          },
+          {
+            "lat": 56.545672,
+            "lon": -3.034029
+          },
+          {
+            "lat": 56.547115,
+            "lon": -3.015532
+          }
+        ],
+        "modes": [
+          "path",
+          "path",
+          "path",
+          "path"
+        ]
+      }
     }
   ],
   "name": "Vrackie",
@@ -43,19 +98,21 @@
     }
   ],
   "timetable": {
-    "start": "09:00",
+    "start": "07:30",
     "stages": [
       {
         "id": "5w3911",
         "type": "drive",
         "label": "",
-        "minutes": 130
+        "minutes": 130,
+        "route": "rg7dapk"
       },
       {
         "id": "ezyc2v",
         "type": "walk",
         "label": "Walk in",
-        "minutes": 85
+        "minutes": 85,
+        "route": "rg7dapk"
       },
       {
         "id": "deiqxt",
@@ -68,17 +125,46 @@
         "id": "vz7u3w",
         "type": "walk",
         "label": "Walk out",
-        "minutes": 80
+        "minutes": 80,
+        "route": "rg7dapk"
+      },
+      {
+        "id": "p60ip0",
+        "type": "drive",
+        "label": "",
+        "minutes": 75,
+        "route": "rvmyish"
+      },
+      {
+        "id": "cn887d",
+        "type": "walk",
+        "label": "Walk in",
+        "minutes": 50,
+        "route": "rvmyish"
+      },
+      {
+        "id": "k8dyj9",
+        "type": "activate",
+        "label": "",
+        "minutes": 40,
+        "summit": "GM/SS-192"
+      },
+      {
+        "id": "axw6df",
+        "type": "walk",
+        "label": "Walk back",
+        "minutes": 45,
+        "route": "rvmyish"
       },
       {
         "id": "7bhhix",
         "type": "drive",
         "label": "Drive home",
-        "minutes": 130
+        "minutes": 90
       }
     ]
   },
   "id": "vrackie-on-es-day",
-  "updated": "2026-11-16T15:35:46.387Z",
+  "updated": "2026-11-22T14:02:10.254Z",
   "created": "2026-11-11T21:45:00.559Z"
 }
